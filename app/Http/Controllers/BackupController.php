@@ -1,0 +1,7 @@
+<?php
+namespace App\Http\Controllers; use App\Models\ActivityLog; use Illuminate\Http\Request; use Illuminate\Support\Facades\{Artisan,File};
+class BackupController extends Controller {
+ public function index(){return view('backup.index');}
+ public function create(){if(config('database.default')!=='sqlite')return back()->with('error','Automatic file backup is enabled for the local SQLite database. For MySQL/XAMPP, export the database with mysqldump/phpMyAdmin and store the file separately.');$path=database_path('database.sqlite');if(!File::exists($path))return back()->with('error','Database file was not found.');$name='senador-coco-backup-'.now()->format('Ymd-His').'.sqlite';ActivityLog::create(['user_id'=>auth()->id(),'module'=>'BACKUP','action'=>'CREATE','description'=>'Created a database backup.']);return response()->download($path,$name);}
+ public function restore(Request $r){$r->validate(['backup'=>'required|file|max:102400']);if(config('database.default')!=='sqlite')return back()->with('error','In-app restore is limited to the local SQLite configuration. Restore MySQL/XAMPP backups through phpMyAdmin or mysql CLI.');$file=$r->file('backup');if(strtolower($file->getClientOriginalExtension())!=='sqlite')return back()->with('error','Select a valid .sqlite backup file.');File::copy($file->getRealPath(),database_path('database.sqlite'));return redirect()->route('login')->with('success','Database restored. Please sign in again.');}
+}

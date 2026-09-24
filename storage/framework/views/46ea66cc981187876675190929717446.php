@@ -1,0 +1,3 @@
+ <?php $__env->startSection('content'); ?><div class="top"><div><h1>Cashiering / Sales</h1><div class="muted">Record customer sales and automatically calculate totals and change</div></div><div class="who">Sales Clerk</div></div><div class="card"><h3>Ready to record a sale</h3><p class="muted">Use the cashiering window to select products, enter quantities, collect payment, and complete the transaction.</p><a class="btn primary" href="<?php echo e(route('sales.create')); ?>">Open Cashiering</a></div><?php $__env->stopSection(); ?>
+
+<?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\Projects\IT12_project\resources\views/dashboard/sales_clerk.blade.php ENDPATH**/ ?>
