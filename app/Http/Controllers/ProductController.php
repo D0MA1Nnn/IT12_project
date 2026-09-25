@@ -94,7 +94,7 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        $data = $this->data($request, true);
+        $data = $this->data($request);
 
         $product = DB::transaction(function () use ($data) {
 
@@ -107,7 +107,7 @@ class ProductController extends Controller
 
             Inventory::create([
                 'product_id' => $product->product_id,
-                'quantity_on_hand' => $data['opening_stock'] ?? 0,
+                'quantity_on_hand' => 0,
                 'reorder_level' => $data['reorder_level'],
                 'last_updated' => now(),
             ]);
@@ -143,7 +143,7 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product)
     {
-        $data = $this->data($request, false);
+        $data = $this->data($request);
 
         DB::transaction(function () use ($data, $product) {
 
@@ -237,7 +237,7 @@ class ProductController extends Controller
         );
     }
 
-    private function data(Request $request, bool $opening = true)
+    private function data(Request $request)
     {
         $rules = [
             'category_id' => [
@@ -279,14 +279,6 @@ class ProductController extends Controller
                 'min:0',
             ],
         ];
-
-        if ($opening) {
-            $rules['opening_stock'] = [
-                'nullable',
-                'integer',
-                'min:0',
-            ];
-        }
 
         return $request->validate($rules);
     }

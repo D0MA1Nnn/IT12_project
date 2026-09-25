@@ -1,8 +1,6 @@
-@extends('layouts.app')
+<?php $__env->startSection('title', 'Products'); ?>
 
-@section('title', 'Products')
-
-@section('content')
+<?php $__env->startSection('content'); ?>
 
 <div class="top">
     <div>
@@ -16,15 +14,15 @@
 </div>
 
 <div class="tabs">
-    <a class="active" href="{{ route('products.index') }}">Products</a>
-    <a href="{{ route('categories.index') }}">Categories</a>
-    <a href="{{ route('units.index') }}">Units of Measure</a>
-    <a href="{{ route('inventory.index') }}">Inventory</a>
+    <a class="active" href="<?php echo e(route('products.index')); ?>">Products</a>
+    <a href="<?php echo e(route('categories.index')); ?>">Categories</a>
+    <a href="<?php echo e(route('units.index')); ?>">Units of Measure</a>
+    <a href="<?php echo e(route('inventory.index')); ?>">Inventory</a>
 </div>
 
-{{-- FILTERS --}}
+
 <form method="GET"
-      action="{{ route('products.index') }}"
+      action="<?php echo e(route('products.index')); ?>"
       class="product-toolbar">
 
     <div class="standard-search">
@@ -33,7 +31,7 @@
         <input
             type="text"
             name="search"
-            value="{{ request('search') }}"
+            value="<?php echo e(request('search')); ?>"
             placeholder="Search products..."
         >
     </div>
@@ -41,14 +39,15 @@
     <select name="category" class="standard-select">
         <option value="">All Categories</option>
 
-        @foreach($categories as $category)
+        <?php $__currentLoopData = $categories; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $category): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
             <option
-                value="{{ $category->category_id }}"
-                @selected(request('category') == $category->category_id)
+                value="<?php echo e($category->category_id); ?>"
+                <?php if(request('category') == $category->category_id): echo 'selected'; endif; ?>
             >
-                {{ $category->category_name }}
+                <?php echo e($category->category_name); ?>
+
             </option>
-        @endforeach
+        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
     </select>
 
 
@@ -56,12 +55,12 @@
         <option value="">All Status</option>
 
         <option value="active"
-            @selected(request('status') === 'active')>
+            <?php if(request('status') === 'active'): echo 'selected'; endif; ?>>
             Active
         </option>
 
         <option value="archived"
-            @selected(request('status') === 'archived')>
+            <?php if(request('status') === 'archived'): echo 'selected'; endif; ?>>
             Archived
         </option>
     </select>
@@ -70,16 +69,16 @@
         Filter
     </button>
 
-    @if(
+    <?php if(
         request()->filled('search') ||
         request()->filled('category') ||
         request()->filled('status')
-    )
-        <a href="{{ route('products.index') }}"
+    ): ?>
+        <a href="<?php echo e(route('products.index')); ?>"
            class="btn light">
             Clear
         </a>
-    @endif
+    <?php endif; ?>
 
     <div class="toolbar-spacer"></div>
 
@@ -112,9 +111,9 @@
 
             <tbody>
 
-            @forelse($products as $product)
+            <?php $__empty_1 = true; $__currentLoopData = $products; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $product): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
 
-                @php
+                <?php
                     $baseUnit =
                         $product->productUnits
                             ->firstWhere('is_base_unit', true)
@@ -122,38 +121,42 @@
 
                     $reorder =
                         (float)($product->inventory?->reorder_level ?? 0);
-                @endphp
+                ?>
 
                 <tr>
 
                     <td>
                         <strong>
-                            {{ $product->product_name }}
+                            <?php echo e($product->product_name); ?>
+
                         </strong>
                     </td>
 
                     <td>
-                        {{ $product->category?->category_name ?? '—' }}
+                        <?php echo e($product->category?->category_name ?? '—'); ?>
+
                     </td>
 
                     <td>
-                        {{ $baseUnit?->unit?->unit_name ?? '—' }}
+                        <?php echo e($baseUnit?->unit?->unit_name ?? '—'); ?>
+
                     </td>
 
                     <td>
-                        ₱{{ number_format((float)($baseUnit?->selling_price ?? 0), 2) }}
+                        ₱<?php echo e(number_format((float)($baseUnit?->selling_price ?? 0), 2)); ?>
+
                     </td>
 
                     <td>
-                        @if($product->is_active)
+                        <?php if($product->is_active): ?>
                             <span class="status-pill active">
                                 Active
                             </span>
-                        @else
+                        <?php else: ?>
                             <span class="status-pill archived">
                                 Archived
                             </span>
-                        @endif
+                        <?php endif; ?>
                     </td>
 
                     <td>
@@ -163,14 +166,14 @@
                             <button
                                 type="button"
                                 class="btn light small edit-product-btn"
-                                data-update-url="{{ route('products.update', $product) }}"
-                                data-name="{{ $product->product_name }}"
-                                data-category="{{ $product->category_id }}"
-                                data-unit="{{ $baseUnit?->unit_id ?? '' }}"
-                                data-price="{{ $baseUnit?->selling_price ?? 0 }}"
-                                data-cost="{{ $baseUnit?->purchase_cost ?? 0 }}"
-                                data-reorder="{{ number_format($reorder, 0, '.', '') }}"
-                                data-description="{{ $product->description ?? '' }}"
+                                data-update-url="<?php echo e(route('products.update', $product)); ?>"
+                                data-name="<?php echo e($product->product_name); ?>"
+                                data-category="<?php echo e($product->category_id); ?>"
+                                data-unit="<?php echo e($baseUnit?->unit_id ?? ''); ?>"
+                                data-price="<?php echo e($baseUnit?->selling_price ?? 0); ?>"
+                                data-cost="<?php echo e($baseUnit?->purchase_cost ?? 0); ?>"
+                                data-reorder="<?php echo e(number_format($reorder, 0, '.', '')); ?>"
+                                data-description="<?php echo e($product->description ?? ''); ?>"
                             >
                                 Edit
                             </button>
@@ -178,32 +181,33 @@
                             <button
                                 type="button"
                                 class="btn primary small units-btn"
-                                data-product-name="{{ $product->product_name }}"
-                                data-store-url="{{ route('products.units.store', $product) }}"
+                                data-product-name="<?php echo e($product->product_name); ?>"
+                                data-store-url="<?php echo e(route('products.units.store', $product)); ?>"
                             >
                                 Units
                             </button>
 
                             <form
                                 method="POST"
-                                action="{{ route(
+                                action="<?php echo e(route(
                                     $product->is_active
                                         ? 'products.deactivate'
                                         : 'products.activate',
                                     $product
-                                ) }}"
+                                )); ?>"
                                 class="product-status-form"
-                                data-product-name="{{ $product->product_name }}"
-                                data-status-action="{{ $product->is_active ? 'archive' : 'restore' }}"
+                                data-product-name="<?php echo e($product->product_name); ?>"
+                                data-status-action="<?php echo e($product->is_active ? 'archive' : 'restore'); ?>"
                             >
-                                @csrf
-                                @method('PATCH')
+                                <?php echo csrf_field(); ?>
+                                <?php echo method_field('PATCH'); ?>
 
                                 <button
                                     type="submit"
-                                    class="btn small {{ $product->is_active ? 'danger' : 'success' }}"
+                                    class="btn small <?php echo e($product->is_active ? 'danger' : 'success'); ?>"
                                 >
-                                    {{ $product->is_active ? 'Archive' : 'Restore' }}
+                                    <?php echo e($product->is_active ? 'Archive' : 'Restore'); ?>
+
                                 </button>
                             </form>
 
@@ -213,7 +217,7 @@
 
                 </tr>
 
-            @empty
+            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
 
                 <tr>
                     <td colspan="6" class="empty-row">
@@ -221,7 +225,7 @@
                     </td>
                 </tr>
 
-            @endforelse
+            <?php endif; ?>
 
             </tbody>
 
@@ -230,52 +234,53 @@
     </div>
 
 
-    @if($products->hasPages())
+    <?php if($products->hasPages()): ?>
 
         <div class="pagination-wrapper">
 
             <div class="pagination-info">
                 Showing
-                {{ $products->firstItem() }}
+                <?php echo e($products->firstItem()); ?>
+
                 to
-                {{ $products->lastItem() }}
+                <?php echo e($products->lastItem()); ?>
+
                 of
-                {{ $products->total() }}
+                <?php echo e($products->total()); ?>
+
                 products
             </div>
 
             <div class="compact-pagination">
-                @if ($products->onFirstPage())
+                <?php if($products->onFirstPage()): ?>
                     <span class="page-link disabled">&lsaquo; Previous</span>
-                @else
-                    <a class="page-link" href="{{ $products->previousPageUrl() }}">&lsaquo; Previous</a>
-                @endif
+                <?php else: ?>
+                    <a class="page-link" href="<?php echo e($products->previousPageUrl()); ?>">&lsaquo; Previous</a>
+                <?php endif; ?>
 
-                @for ($page = 1; $page <= $products->lastPage(); $page++)
-                    @if ($page === $products->currentPage())
-                        <span class="page-link active">{{ $page }}</span>
-                    @else
-                        <a class="page-link" href="{{ $products->url($page) }}">{{ $page }}</a>
-                    @endif
-                @endfor
+                <?php for($page = 1; $page <= $products->lastPage(); $page++): ?>
+                    <?php if($page === $products->currentPage()): ?>
+                        <span class="page-link active"><?php echo e($page); ?></span>
+                    <?php else: ?>
+                        <a class="page-link" href="<?php echo e($products->url($page)); ?>"><?php echo e($page); ?></a>
+                    <?php endif; ?>
+                <?php endfor; ?>
 
-                @if ($products->hasMorePages())
-                    <a class="page-link" href="{{ $products->nextPageUrl() }}">Next &rsaquo;</a>
-                @else
+                <?php if($products->hasMorePages()): ?>
+                    <a class="page-link" href="<?php echo e($products->nextPageUrl()); ?>">Next &rsaquo;</a>
+                <?php else: ?>
                     <span class="page-link disabled">Next &rsaquo;</span>
-                @endif
+                <?php endif; ?>
             </div>
 
         </div>
 
-    @endif
+    <?php endif; ?>
 
 </div>
 
 
-{{-- =========================================================
-ARCHIVE / RESTORE CONFIRMATION MODAL
-========================================================= --}}
+
 
 <div class="modal-overlay" id="productStatusModal">
     <div class="system-modal product-confirm-modal">
@@ -292,9 +297,7 @@ ARCHIVE / RESTORE CONFIRMATION MODAL
 </div>
 
 
-{{-- =========================================================
-ADD / EDIT PRODUCT MODAL
-========================================================= --}}
+
 
 <div class="modal-overlay"
      id="productModal">
@@ -327,9 +330,9 @@ ADD / EDIT PRODUCT MODAL
         <form
             method="POST"
             id="productForm"
-            action="{{ route('products.store') }}"
+            action="<?php echo e(route('products.store')); ?>"
         >
-            @csrf
+            <?php echo csrf_field(); ?>
 
             <div id="productMethod"></div>
 
@@ -361,11 +364,12 @@ ADD / EDIT PRODUCT MODAL
                             Select category
                         </option>
 
-                        @foreach($categories as $category)
-                            <option value="{{ $category->category_id }}">
-                                {{ $category->category_name }}
+                        <?php $__currentLoopData = $categories; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $category): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                            <option value="<?php echo e($category->category_id); ?>">
+                                <?php echo e($category->category_name); ?>
+
                             </option>
-                        @endforeach
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                     </select>
                 </div>
 
@@ -382,12 +386,13 @@ ADD / EDIT PRODUCT MODAL
                             Select unit
                         </option>
 
-                        @foreach($units as $unit)
-                            <option value="{{ $unit->unit_id }}">
-                                {{ $unit->unit_name }}
-                                ({{ $unit->unit_symbol }})
+                        <?php $__currentLoopData = $units; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $unit): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                            <option value="<?php echo e($unit->unit_id); ?>">
+                                <?php echo e($unit->unit_name); ?>
+
+                                (<?php echo e($unit->unit_symbol); ?>)
                             </option>
-                        @endforeach
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                     </select>
                 </div>
 
@@ -477,9 +482,7 @@ ADD / EDIT PRODUCT MODAL
 </div>
 
 
-{{-- =========================================================
-PRODUCT UNITS MODAL
-========================================================= --}}
+
 
 <div class="modal-overlay"
      id="unitsModal">
@@ -519,7 +522,7 @@ PRODUCT UNITS MODAL
             method="POST"
             id="unitsForm"
         >
-            @csrf
+            <?php echo csrf_field(); ?>
 
 
             <div class="modal-grid">
@@ -535,12 +538,13 @@ PRODUCT UNITS MODAL
                             Select unit
                         </option>
 
-                        @foreach($units as $unit)
-                            <option value="{{ $unit->unit_id }}">
-                                {{ $unit->unit_name }}
-                                ({{ $unit->unit_symbol }})
+                        <?php $__currentLoopData = $units; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $unit): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                            <option value="<?php echo e($unit->unit_id); ?>">
+                                <?php echo e($unit->unit_name); ?>
+
+                                (<?php echo e($unit->unit_symbol); ?>)
                             </option>
-                        @endforeach
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                     </select>
                 </div>
 
@@ -1035,7 +1039,7 @@ PRODUCT UNITS MODAL
 </style>
 
 
-@push('scripts')
+<?php $__env->startPush('scripts'); ?>
 
 <script>
 
@@ -1092,7 +1096,7 @@ document.addEventListener('DOMContentLoaded', function () {
         productForm.reset();
 
         productForm.action =
-            @json(route('products.store'));
+            <?php echo json_encode(route('products.store'), 15, 512) ?>;
 
         productMethod.innerHTML = '';
 
@@ -1388,6 +1392,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 </script>
 
-@endpush
+<?php $__env->stopPush(); ?>
 
-@endsection
+<?php $__env->stopSection(); ?>
+<?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\Projects\IT12_project\resources\views/products/index.blade.php ENDPATH**/ ?>
