@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\Product;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 
@@ -17,6 +18,13 @@ class SupplierController extends Controller
         $status = $request->get('status', 'all');
 
         $suppliers = Supplier::query()
+            ->with([
+                'products' => function ($query) {
+                    $query
+                        ->with('category')
+                        ->orderBy('product_name');
+                },
+            ])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('supplier_name', 'like', "%{$search}%")
@@ -36,8 +44,14 @@ class SupplierController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+        $products = Product::with('category')
+            ->where('is_active', true)
+            ->orderBy('product_name')
+            ->get();
+
         return view('suppliers.index', compact(
             'suppliers',
+            'products',
             'search',
             'status'
         ));
@@ -63,28 +77,35 @@ class SupplierController extends Controller
             trim($validated['supplier_name']);
 
         $validated['contact_person'] =
-            !empty($validated['contact_person'])
+            ! empty($validated['contact_person'])
                 ? trim($validated['contact_person'])
                 : null;
 
         $validated['contact_number'] =
-            !empty($validated['contact_number'])
+            ! empty($validated['contact_number'])
                 ? trim($validated['contact_number'])
                 : null;
 
         $validated['email'] =
-            !empty($validated['email'])
+            ! empty($validated['email'])
                 ? trim($validated['email'])
                 : null;
 
         $validated['address'] =
-            !empty($validated['address'])
+            ! empty($validated['address'])
                 ? trim($validated['address'])
                 : null;
 
         $validated['is_active'] = true;
 
+        $productIds = $validated['product_ids'] ?? [];
+        unset($validated['product_ids']);
+
         $supplier = Supplier::create($validated);
+
+        $supplier->products()->sync(
+            $productIds
+        );
 
         $this->log(
             'CREATE',
@@ -122,28 +143,35 @@ class SupplierController extends Controller
             trim($validated['supplier_name']);
 
         $validated['contact_person'] =
-            !empty($validated['contact_person'])
+            ! empty($validated['contact_person'])
                 ? trim($validated['contact_person'])
                 : null;
 
         $validated['contact_number'] =
-            !empty($validated['contact_number'])
+            ! empty($validated['contact_number'])
                 ? trim($validated['contact_number'])
                 : null;
 
         $validated['email'] =
-            !empty($validated['email'])
+            ! empty($validated['email'])
                 ? trim($validated['email'])
                 : null;
 
         $validated['address'] =
-            !empty($validated['address'])
+            ! empty($validated['address'])
                 ? trim($validated['address'])
                 : null;
 
         $oldName = $supplier->supplier_name;
 
+        $productIds = $validated['product_ids'] ?? [];
+        unset($validated['product_ids']);
+
         $supplier->update($validated);
+
+        $supplier->products()->sync(
+            $productIds
+        );
 
         $this->log(
             'UPDATE',
@@ -162,7 +190,7 @@ class SupplierController extends Controller
     public function toggle(Supplier $supplier)
     {
         $supplier->update([
-            'is_active' => !$supplier->is_active,
+            'is_active' => ! $supplier->is_active,
         ]);
 
         $action = $supplier->is_active
@@ -221,6 +249,16 @@ class SupplierController extends Controller
                 'nullable',
                 'string',
                 'max:1000',
+            ],
+
+            'product_ids' => [
+                'nullable',
+                'array',
+            ],
+
+            'product_ids.*' => [
+                'integer',
+                'exists:products,product_id',
             ],
         ]);
     }

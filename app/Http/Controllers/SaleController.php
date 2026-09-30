@@ -46,6 +46,9 @@ class SaleController extends Controller
             },
         ])
             ->where('is_active', true)
+            ->whereHas('inventory', function ($query) {
+                $query->where('quantity_on_hand', '>', 0);
+            })
             ->whereHas('productUnits', function ($query) {
                 $query->where('is_active', true);
             })
@@ -62,12 +65,22 @@ class SaleController extends Controller
             ->orderBy('category_name')
             ->get();
 
+        $completedSale = null;
+
+        if (session()->has('completed_sale_id')) {
+            $completedSale = Sale::with([
+                'user',
+                'items.productUnit.product',
+                'items.productUnit.unit',
+            ])->find(session('completed_sale_id'));
+        }
+
         return view('sales.create', [
             'products' => $products,
             'categories' => $categories,
+            'completedSale' => $completedSale,
         ]);
     }
-
 
     // =========================================================
     // SALES MANAGEMENT / SALES HISTORY
@@ -79,7 +92,9 @@ class SaleController extends Controller
             'user',
             'items.productUnit.product',
             'items.productUnit.unit',
-        ]);
+        ])
+            ->where('delivery_required', true)
+            ->where('status', 'PENDING');
 
         /*
         |--------------------------------------------------------------------------
@@ -120,24 +135,6 @@ class SaleController extends Controller
             });
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Status filter
-        |--------------------------------------------------------------------------
-        |
-        | PENDING
-        | COMPLETED
-        | CANCELLED
-        |
-        */
-
-        if ($request->filled('status')) {
-            $query->where(
-                'status',
-                $request->status
-            );
-        }
-
         return view('sales.index', [
             'sales' => $query
                 ->latest('sale_date')
@@ -146,6 +143,109 @@ class SaleController extends Controller
         ]);
     }
 
+    // =========================================================
+    // SALES REPORT
+    // =========================================================
+
+    public function report(Request $request)
+    {
+        $filters = $request->validate([
+            'q' => [
+                'nullable',
+                'string',
+                'max:100',
+                'regex:/^[A-Za-z0-9\s\-_@.]+$/',
+            ],
+
+            'from' => [
+                'nullable',
+                'date_format:Y-m-d',
+                'before_or_equal:today',
+            ],
+
+            'to' => [
+                'nullable',
+                'date_format:Y-m-d',
+                'before_or_equal:today',
+                'after_or_equal:from',
+            ],
+        ], [
+            'q.max' => 'Search must not be longer than 100 characters.',
+            'q.regex' => 'Search can only contain letters, numbers, spaces, dash, underscore, @, and dot.',
+            'from.date_format' => 'From date must be a valid date.',
+            'from.before_or_equal' => 'From date cannot be in the future.',
+            'to.date_format' => 'To date must be a valid date.',
+            'to.before_or_equal' => 'To date cannot be in the future.',
+            'to.after_or_equal' => 'To date cannot be earlier than the From date.',
+        ]);
+
+        $query = Sale::with([
+            'user',
+            'items.productUnit.product',
+            'items.productUnit.unit',
+        ])
+            ->where('status', 'COMPLETED');
+
+        if (! empty($filters['from'])) {
+            $query->whereDate(
+                'sale_date',
+                '>=',
+                $filters['from']
+            );
+        }
+
+        if (! empty($filters['to'])) {
+            $query->whereDate(
+                'sale_date',
+                '<=',
+                $filters['to']
+            );
+        }
+
+        $search = trim((string) ($filters['q'] ?? ''));
+
+        if ($search !== '') {
+
+            $numeric = preg_replace('/\D/', '', $search);
+
+            $query->where(function ($query) use ($search, $numeric) {
+                if ($numeric !== '') {
+                    $query->orWhere(
+                        'sale_id',
+                        (int) $numeric
+                    );
+                }
+
+                $query->orWhereHas(
+                    'user',
+                    function ($userQuery) use ($search) {
+                        $userQuery->where(
+                            'username',
+                            'like',
+                            "%{$search}%"
+                        );
+                    }
+                );
+            });
+        }
+
+        $summaryQuery = clone $query;
+
+        $totalSales = (clone $summaryQuery)->count();
+        $totalAmount = (float) (clone $summaryQuery)->sum('total_amount');
+
+        return view('sales.report', [
+            'sales' => $query
+                ->latest('sale_date')
+                ->paginate(15)
+                ->withQueryString(),
+            'averageSale' => $totalSales > 0 ? $totalAmount / $totalSales : 0,
+            'deliverySales' => (clone $summaryQuery)->where('delivery_required', true)->count(),
+            'totalAmount' => $totalAmount,
+            'totalSales' => $totalSales,
+            'walkInSales' => (clone $summaryQuery)->where('delivery_required', false)->count(),
+        ]);
+    }
 
     // =========================================================
     // STORE SALE
@@ -157,6 +257,27 @@ class SaleController extends Controller
             'delivery_required' => [
                 'nullable',
                 'boolean',
+            ],
+
+            'customer_name' => [
+                'required_if:delivery_required,1',
+                'nullable',
+                'string',
+                'max:150',
+            ],
+
+            'customer_contact_number' => [
+                'required_if:delivery_required,1',
+                'nullable',
+                'string',
+                'max:50',
+            ],
+
+            'delivery_address' => [
+                'required_if:delivery_required,1',
+                'nullable',
+                'string',
+                'max:1000',
             ],
 
             'payment' => [
@@ -185,7 +306,6 @@ class SaleController extends Controller
 
         $deliveryRequired =
             (bool) ($data['delivery_required'] ?? false);
-
 
         /*
         |--------------------------------------------------------------------------
@@ -227,18 +347,26 @@ class SaleController extends Controller
 
                     'total_amount' => 0,
 
-                    'status' =>
-                        $deliveryRequired
+                    'status' => $deliveryRequired
                             ? 'PENDING'
                             : 'COMPLETED',
 
-                    'delivery_required' =>
-                        $deliveryRequired,
+                    'delivery_required' => $deliveryRequired,
+
+                    'customer_name' => $deliveryRequired
+                            ? trim((string) $data['customer_name'])
+                            : null,
+
+                    'customer_contact_number' => $deliveryRequired
+                            ? trim((string) $data['customer_contact_number'])
+                            : null,
+
+                    'delivery_address' => $deliveryRequired
+                            ? trim((string) $data['delivery_address'])
+                            : null,
                 ]);
 
-
                 $total = 0;
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -262,7 +390,6 @@ class SaleController extends Controller
 
                 $reservedByProduct = [];
 
-
                 foreach ($data['items'] as $item) {
 
                     /*
@@ -279,7 +406,6 @@ class SaleController extends Controller
                             $item['product_unit_id']
                         );
 
-
                     /*
                     |--------------------------------------------------------------------------
                     | Verify product and unit are still active.
@@ -287,16 +413,14 @@ class SaleController extends Controller
                     */
 
                     if (
-                        !$productUnit->is_active ||
-                        !$productUnit->product ||
-                        !$productUnit->product->is_active
+                        ! $productUnit->is_active ||
+                        ! $productUnit->product ||
+                        ! $productUnit->product->is_active
                     ) {
                         throw ValidationException::withMessages([
-                            'items' =>
-                                'One of the selected products or selling units is no longer active.',
+                            'items' => 'One of the selected products or selling units is no longer active.',
                         ]);
                     }
-
 
                     /*
                     |--------------------------------------------------------------------------
@@ -319,43 +443,34 @@ class SaleController extends Controller
                     $conversionFactor =
                         (float) $productUnit->conversion_factor;
 
-
                     if ($conversionFactor <= 0) {
                         throw ValidationException::withMessages([
-                            'items' =>
-                                "Invalid unit conversion configured for {$productUnit->product->product_name}.",
+                            'items' => "Invalid unit conversion configured for {$productUnit->product->product_name}.",
                         ]);
                     }
-
 
                     $quantity =
                         (float) $item['quantity'];
 
-
                     $neededBaseQuantity =
                         $quantity *
                         $conversionFactor;
-
 
                     $inventory =
                         $productUnit
                             ->product
                             ->inventory;
 
-
-                    if (!$inventory) {
+                    if (! $inventory) {
                         throw ValidationException::withMessages([
-                            'items' =>
-                                "No inventory record exists for {$productUnit->product->product_name}.",
+                            'items' => "No inventory record exists for {$productUnit->product->product_name}.",
                         ]);
                     }
-
 
                     $productId =
                         $productUnit
                             ->product
                             ->product_id;
-
 
                     /*
                     |--------------------------------------------------------------------------
@@ -368,11 +483,9 @@ class SaleController extends Controller
                         $reservedByProduct[$productId]
                         ?? 0;
 
-
                     $totalRequired =
                         $alreadyReserved +
                         $neededBaseQuantity;
-
 
                     /*
                     |--------------------------------------------------------------------------
@@ -385,15 +498,12 @@ class SaleController extends Controller
                         $totalRequired
                     ) {
                         throw ValidationException::withMessages([
-                            'items' =>
-                                "Insufficient stock for {$productUnit->product->product_name}.",
+                            'items' => "Insufficient stock for {$productUnit->product->product_name}.",
                         ]);
                     }
 
-
                     $reservedByProduct[$productId] =
                         $totalRequired;
-
 
                     /*
                     |--------------------------------------------------------------------------
@@ -407,7 +517,6 @@ class SaleController extends Controller
                         2
                     );
 
-
                     /*
                     |--------------------------------------------------------------------------
                     | Create sale item.
@@ -415,27 +524,20 @@ class SaleController extends Controller
                     */
 
                     SaleItem::create([
-                        'sale_id' =>
-                            $sale->sale_id,
+                        'sale_id' => $sale->sale_id,
 
-                        'product_unit_id' =>
-                            $productUnit->product_unit_id,
+                        'product_unit_id' => $productUnit->product_unit_id,
 
-                        'quantity' =>
-                            $quantity,
+                        'quantity' => $quantity,
 
-                        'unit_price' =>
-                            $productUnit->selling_price,
+                        'unit_price' => $productUnit->selling_price,
 
-                        'subtotal' =>
-                            $subtotal,
+                        'subtotal' => $subtotal,
                     ]);
-
 
                     $total +=
                         $subtotal;
                 }
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -448,11 +550,9 @@ class SaleController extends Controller
                     $total
                 ) {
                     throw ValidationException::withMessages([
-                        'payment' =>
-                            'Customer payment is less than the total amount.',
+                        'payment' => 'Customer payment is less than the total amount.',
                     ]);
                 }
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -464,48 +564,41 @@ class SaleController extends Controller
                 | COMPLETED sale
                 | PENDING DELIVERY sale
                 |
-                | Therefore, a pending delivery cannot accidentally be
+                | Therefore, a for delivery sale cannot accidentally be
                 | sold again to another customer.
                 |
                 */
 
                 foreach (
-                    $reservedByProduct
-                    as $productId => $quantity
+                    $reservedByProduct as $productId => $quantity
                 ) {
 
                     $product = Product::with('inventory')
                         ->lockForUpdate()
                         ->findOrFail($productId);
 
-
                     $inventory =
                         $product->inventory;
 
-
                     if (
-                        !$inventory ||
+                        ! $inventory ||
                         (float) $inventory->quantity_on_hand <
                         $quantity
                     ) {
                         throw ValidationException::withMessages([
-                            'items' =>
-                                "Insufficient stock for {$product->product_name}.",
+                            'items' => "Insufficient stock for {$product->product_name}.",
                         ]);
                     }
-
 
                     $inventory->decrement(
                         'quantity_on_hand',
                         $quantity
                     );
 
-
                     $inventory->update([
                         'last_updated' => now(),
                     ]);
                 }
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -517,11 +610,9 @@ class SaleController extends Controller
                     'total_amount' => $total,
                 ]);
 
-
                 return $sale;
             }
         );
-
 
         /*
         |--------------------------------------------------------------------------
@@ -530,29 +621,22 @@ class SaleController extends Controller
         */
 
         ActivityLog::create([
-            'user_id' =>
-                auth()->id(),
+            'user_id' => auth()->id(),
 
-            'module' =>
-                'SALE',
+            'module' => 'SALE',
 
-            'action' =>
-                'CREATE',
+            'action' => 'CREATE',
 
-            'description' =>
-                $deliveryRequired
+            'description' => $deliveryRequired
 
-                    ? "Recorded sale #{$sale->sale_id} as pending delivery."
+                    ? "Recorded sale #{$sale->sale_id} as for delivery."
 
                     : "Completed sale #{$sale->sale_id}.",
 
-            'reference_type' =>
-                'Sale',
+            'reference_type' => 'Sale',
 
-            'reference_id' =>
-                $sale->sale_id,
+            'reference_id' => $sale->sale_id,
         ]);
-
 
         /*
         |--------------------------------------------------------------------------
@@ -566,6 +650,9 @@ class SaleController extends Controller
 
         return redirect()
             ->route('sales.create')
+            ->with('completed_sale_id', $sale->sale_id)
+            ->with('receipt_payment', (float) $data['payment'])
+            ->with('receipt_change', (float) $data['payment'] - (float) $sale->total_amount)
             ->with(
                 'success',
 
@@ -577,7 +664,6 @@ class SaleController extends Controller
             );
     }
 
-
     // =========================================================
     // COMPLETE DELIVERY
     // =========================================================
@@ -586,79 +672,76 @@ class SaleController extends Controller
     {
         /*
         |--------------------------------------------------------------------------
-        | Only pending delivery transactions can be completed.
+        | Only for delivery transactions can be completed.
         |--------------------------------------------------------------------------
         */
 
         if (
-            !$sale->delivery_required ||
+            ! $sale->delivery_required ||
             $sale->status !== 'PENDING'
         ) {
             return back()->with(
                 'error',
-                'Only pending delivery orders can be marked completed.'
+                'Only for delivery orders can be marked delivered.'
             );
         }
-
 
         $sale->update([
             'status' => 'COMPLETED',
         ]);
 
-
         ActivityLog::create([
-            'user_id' =>
-                auth()->id(),
+            'user_id' => auth()->id(),
 
-            'module' =>
-                'SALE',
+            'module' => 'SALE',
 
-            'action' =>
-                'UPDATE',
+            'action' => 'UPDATE',
 
-            'description' =>
-                "Marked delivery for sale #{$sale->sale_id} as completed.",
+            'description' => "Marked delivery for sale #{$sale->sale_id} as delivered successfully.",
 
-            'reference_type' =>
-                'Sale',
+            'reference_type' => 'Sale',
 
-            'reference_id' =>
-                $sale->sale_id,
+            'reference_id' => $sale->sale_id,
         ]);
-
 
         return back()->with(
             'success',
-            'Delivery marked as completed.'
+            'Delivery marked as delivered successfully.'
         );
     }
-
 
     // =========================================================
     // CANCEL DELIVERY
     // =========================================================
 
-    public function cancelDelivery(Sale $sale)
+    public function cancelDelivery(Request $request, Sale $sale)
     {
+        $data = $request->validate([
+            'delivery_cancel_reason' => [
+                'required',
+                'string',
+                'max:1000',
+            ],
+        ]);
+
         /*
         |--------------------------------------------------------------------------
-        | Only Pending Delivery orders can be cancelled.
+        | Only for delivery orders can be cancelled.
         |--------------------------------------------------------------------------
         */
 
         if (
-            !$sale->delivery_required ||
+            ! $sale->delivery_required ||
             $sale->status !== 'PENDING'
         ) {
             return back()->with(
                 'error',
-                'Only pending delivery orders can be cancelled.'
+                'Only for delivery orders can be cancelled.'
             );
         }
 
-
         DB::transaction(
-            function () use ($sale) {
+            function () use ($sale, $data) {
 
                 /*
                 |--------------------------------------------------------------------------
@@ -673,7 +756,6 @@ class SaleController extends Controller
                     ->lockForUpdate()
                     ->firstOrFail();
 
-
                 /*
                 |--------------------------------------------------------------------------
                 | Re-check status after acquiring lock.
@@ -685,20 +767,17 @@ class SaleController extends Controller
                 */
 
                 if (
-                    !$lockedSale->delivery_required ||
+                    ! $lockedSale->delivery_required ||
                     $lockedSale->status !== 'PENDING'
                 ) {
                     throw ValidationException::withMessages([
-                        'sale' =>
-                            'This delivery is no longer pending.',
+                        'sale' => 'This delivery is no longer for delivery.',
                     ]);
                 }
-
 
                 $lockedSale->load([
                     'items.productUnit.product.inventory',
                 ]);
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -712,48 +791,40 @@ class SaleController extends Controller
 
                 $returnByProduct = [];
 
-
                 foreach (
-                    $lockedSale->items
-                    as $item
+                    $lockedSale->items as $item
                 ) {
 
                     $productUnit =
                         $item->productUnit;
 
-
                     if (
-                        !$productUnit ||
-                        !$productUnit->product
+                        ! $productUnit ||
+                        ! $productUnit->product
                     ) {
                         continue;
                     }
-
 
                     $productId =
                         $productUnit
                             ->product
                             ->product_id;
 
-
                     $returnQuantity =
                         (float) $item->quantity *
                         (float) $productUnit->conversion_factor;
 
-
                     if (
-                        !isset(
+                        ! isset(
                             $returnByProduct[$productId]
                         )
                     ) {
                         $returnByProduct[$productId] = 0;
                     }
 
-
                     $returnByProduct[$productId] +=
                         $returnQuantity;
                 }
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -762,22 +833,19 @@ class SaleController extends Controller
                 */
 
                 foreach (
-                    $returnByProduct
-                    as $productId => $quantity
+                    $returnByProduct as $productId => $quantity
                 ) {
 
                     $product = Product::with('inventory')
                         ->lockForUpdate()
                         ->find($productId);
 
-
                     if (
-                        !$product ||
-                        !$product->inventory
+                        ! $product ||
+                        ! $product->inventory
                     ) {
                         continue;
                     }
-
 
                     $product
                         ->inventory
@@ -786,15 +854,12 @@ class SaleController extends Controller
                             $quantity
                         );
 
-
                     $product
                         ->inventory
                         ->update([
-                            'last_updated' =>
-                                now(),
+                            'last_updated' => now(),
                         ]);
                 }
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -804,35 +869,28 @@ class SaleController extends Controller
 
                 $lockedSale->update([
                     'status' => 'CANCELLED',
+                    'delivery_cancel_reason' => trim((string) $data['delivery_cancel_reason']),
                 ]);
             }
         );
 
-
         ActivityLog::create([
-            'user_id' =>
-                auth()->id(),
+            'user_id' => auth()->id(),
 
-            'module' =>
-                'SALE',
+            'module' => 'SALE',
 
-            'action' =>
-                'UPDATE',
+            'action' => 'UPDATE',
 
-            'description' =>
-                "Cancelled delivery for sale #{$sale->sale_id} and returned reserved stock to inventory.",
+            'description' => "Cancelled delivery for sale #{$sale->sale_id} and returned reserved stock to inventory. Reason: ".trim((string) $data['delivery_cancel_reason']),
 
-            'reference_type' =>
-                'Sale',
+            'reference_type' => 'Sale',
 
-            'reference_id' =>
-                $sale->sale_id,
+            'reference_id' => $sale->sale_id,
         ]);
-
 
         return back()->with(
             'success',
-            'Delivery cancelled and reserved stock returned to inventory.'
+            'Delivery cancelled and all products were returned to inventory.'
         );
     }
 }

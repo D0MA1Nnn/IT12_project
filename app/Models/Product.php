@@ -53,4 +53,14 @@ class Product extends Model
             'product_id'
         );
     }
+
+    public function suppliers()
+    {
+        return $this->belongsToMany(
+            Supplier::class,
+            'product_supplier',
+            'product_id',
+            'supplier_id'
+        )->withTimestamps();
+    }
 }

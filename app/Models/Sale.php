@@ -19,6 +19,10 @@ class Sale extends Model
         'total_amount',
         'status',
         'delivery_required',
+        'customer_name',
+        'customer_contact_number',
+        'delivery_address',
+        'delivery_cancel_reason',
     ];
 
     protected function casts(): array

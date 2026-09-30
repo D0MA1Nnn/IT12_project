@@ -1,29 +1,10 @@
 @extends('layouts.app')
 
-@section('title', 'Cashiering / Sales')
+@section('title', 'Cashiering')
 
 @section('content')
 
-<div class="top">
-    <div>
-        <h1>Cashiering / Sales</h1>
-        <div class="muted">
-            Search products, choose the customer's selling unit, and process each sale without blocking pending deliveries.
-        </div>
-    </div>
-
-    <div class="who">
-        {{ auth()->user()->role === 'OWNER' ? 'Owner' : 'Sales Clerk' }}
-    </div>
-</div>
-
 {{-- SUCCESS / ERROR --}}
-@if(session('success'))
-    <div class="alert success" style="margin-bottom:16px;">
-        {{ session('success') }}
-    </div>
-@endif
-
 @if(session('error'))
     <div class="alert danger" style="margin-bottom:16px;">
         {{ session('error') }}
@@ -41,6 +22,7 @@
     </div>
 @endif
 
+@include('sales.partials.module-tabs', ['activeSalesTab' => 'cashiering'])
 
 <form
     method="POST"
@@ -50,18 +32,35 @@
     @csrf
 
     {{-- ====================================================== --}}
-    {{-- FILTERS                                                --}}
+    {{-- MAIN CASHIER AREA                                      --}}
     {{-- ====================================================== --}}
 
-    <div class="card cashier-filter-card">
+    <div class="cashier-grid">
+
+        {{-- ================================================== --}}
+        {{-- PRODUCTS                                           --}}
+        {{-- ================================================== --}}
+
+        <div class="card cashier-products-card">
+
+            <div class="cashier-section-header">
+
+                <h2>
+                    Products
+                </h2>
+
+                <div class="muted">
+                    Each product appears once. Select the selling unit requested by the customer.
+                </div>
+
+            </div>
+
+
+<div class="cashier-filter-card">
 
         <div class="cashier-filters">
 
             <div class="cashier-search-wrap">
-
-                <span class="cashier-search-icon">
-                    &#128269;
-                </span>
 
                 <input
                     type="text"
@@ -92,26 +91,6 @@
 
                 @endforeach
             </select>
-
-
-            <select
-                id="stockFilter"
-                class="input cashier-filter-select"
-            >
-                <option value="">
-                    All Stock
-                </option>
-
-                <option value="in">
-                    In Stock
-                </option>
-
-                <option value="out">
-                    Out of Stock
-                </option>
-            </select>
-
-
             <button
                 type="button"
                 class="btn primary"
@@ -123,31 +102,6 @@
         </div>
 
     </div>
-
-
-    {{-- ====================================================== --}}
-    {{-- MAIN CASHIER AREA                                      --}}
-    {{-- ====================================================== --}}
-
-    <div class="cashier-grid">
-
-        {{-- ================================================== --}}
-        {{-- PRODUCTS                                           --}}
-        {{-- ================================================== --}}
-
-        <div class="card cashier-products-card">
-
-            <div class="cashier-section-header">
-
-                <h2>
-                    Products
-                </h2>
-
-                <div class="muted">
-                    Each product appears once. Select the selling unit requested by the customer.
-                </div>
-
-            </div>
 
 
             <div
@@ -251,20 +205,15 @@
                             @endif
 
                         </div>
+                        {{-- SELLING UNITS --}}
 
-
-                        {{-- SELLING UNIT --}}
-
-                        <div class="cashier-control">
+                        <div class="cashier-unit-actions">
 
                             <label>
                                 Selling Unit
                             </label>
 
-                            <select
-                                class="input cashier-unit-select"
-                                @disabled($baseStock <= 0)
-                            >
+                            <div class="cashier-unit-buttons">
 
                                 @foreach($activeUnits as $productUnit)
 
@@ -306,55 +255,24 @@
                                         ];
                                     @endphp
 
-
-                                    <option
-                                        value="{{ $productUnit->product_unit_id }}"
+                                    <button
+                                        type="button"
+                                        class="cashier-unit-button"
                                         data-unit="{{ json_encode($unitData) }}"
+                                        @disabled($baseStock <= 0)
                                     >
-                                        {{ $productUnit->unit?->unit_name ?? 'Unit' }}
-                                        — ₱{{ number_format((float) $productUnit->selling_price, 2) }}
-                                    </option>
+                                        <span>
+                                            {{ $productUnit->unit?->unit_name ?? 'Unit' }}
+                                        </span>
+
+                                        <strong>
+                                            ₱{{ number_format((float) $productUnit->selling_price, 2) }}
+                                        </strong>
+                                    </button>
 
                                 @endforeach
 
-                            </select>
-
-                        </div>
-
-
-                        {{-- QUANTITY --}}
-
-                        <div class="cashier-control">
-
-                            <label>
-                                Quantity
-                            </label>
-
-                            <input
-                                type="number"
-                                class="input cashier-product-qty"
-                                min="0.001"
-                                step="0.001"
-                                value="1"
-                                @disabled($baseStock <= 0)
-                            >
-
-                        </div>
-
-
-                        {{-- ADD --}}
-
-                        <div class="cashier-add-control">
-
-                            <label>&nbsp;</label>
-
-                            <button
-                                type="button"
-                                class="btn primary cashier-add-button"
-                                @disabled($baseStock <= 0)
-                            >
-                                + Add
-                            </button>
+                            </div>
 
                         </div>
 
@@ -377,6 +295,27 @@
                     No products match your search or filter.
                 </div>
 
+            </div>
+            <div class="cashier-product-pagination" id="productPagination">
+                <button
+                    type="button"
+                    class="btn light small"
+                    id="productPrevPage"
+                >
+                    Previous
+                </button>
+
+                <span class="muted" id="productPageInfo">
+                    Page 1 of 1
+                </span>
+
+                <button
+                    type="button"
+                    class="btn light small"
+                    id="productNextPage"
+                >
+                    Next
+                </button>
             </div>
 
         </div>
@@ -477,19 +416,59 @@
             <div class="muted cashier-delivery-help">
 
                 If checked, the order is saved as
-                <strong>Pending Delivery</strong>.
+                <strong>For Delivery</strong>.
 
                 You can immediately serve the next customer.
+
+            </div>
+
+            <div
+                class="cashier-delivery-fields"
+                id="deliveryFields"
+            >
+
+                <div class="field">
+                    <label>Customer Name</label>
+                    <input
+                        class="input"
+                        type="text"
+                        name="customer_name"
+                        id="customerName"
+                        value="{{ old('customer_name') }}"
+                        autocomplete="name"
+                    >
+                </div>
+
+                <div class="field">
+                    <label>Contact Number</label>
+                    <input
+                        class="input"
+                        type="text"
+                        name="customer_contact_number"
+                        id="customerContactNumber"
+                        value="{{ old('customer_contact_number') }}"
+                        autocomplete="tel"
+                    >
+                </div>
+
+                <div class="field cashier-delivery-address">
+                    <label>Address</label>
+                    <textarea
+                        name="delivery_address"
+                        id="deliveryAddress"
+                        rows="3"
+                    >{{ old('delivery_address') }}</textarea>
+                </div>
 
             </div>
 
 
             <button
                 type="button"
-                id="reviewSale"
+                id="confirmSaleButton"
                 class="btn success cashier-review-button"
             >
-                REVIEW SALE
+                CONFIRM SALE
             </button>
 
         </div>
@@ -500,12 +479,22 @@
 
 
 {{-- ========================================================== --}}
-{{-- REVIEW SALE MODAL                                          --}}
+{{-- SALE RECEIPT MODAL                                          --}}
 {{-- ========================================================== --}}
+
+@php
+    $receiptPayment = $completedSale
+        ? (float) session('receipt_payment', $completedSale->total_amount)
+        : 0;
+
+    $receiptChange = $completedSale
+        ? (float) session('receipt_change', max(0, $receiptPayment - (float) $completedSale->total_amount))
+        : 0;
+@endphp
 
 <div
     id="saleModal"
-    class="sale-modal"
+    class="sale-modal {{ $completedSale ? 'open' : '' }}"
 >
 
     <div class="sale-modal-card">
@@ -513,66 +502,116 @@
         <div class="sale-modal-head">
 
             <div>
+                <div class="sale-receipt-store">
+                    SENADOR COCO
+                </div>
+
+                <div class="sale-receipt-store-subtitle">
+                    Lumber & Construction Supplies
+                </div>
 
                 <h2>
-                    Confirm Sale
+                    Transaction Successfully Completed
                 </h2>
 
                 <div class="muted">
-                    Verify the transaction before saving.
+                    @if($completedSale)
+                        Receipt for SALE-{{ str_pad($completedSale->sale_id, 4, '0', STR_PAD_LEFT) }}
+                    @else
+                        Receipt details will appear after saving.
+                    @endif
                 </div>
 
             </div>
 
 
-            <button
-                type="button"
-                class="sale-modal-close"
-                id="closeModal"
-            >
-                &times;
-            </button>
-
         </div>
 
+        @if($completedSale)
 
-        <div id="modalItems"></div>
+            <div class="sale-receipt-meta">
+                <div>
+                    <span>Date / Time</span>
+                    <strong>{{ $completedSale->sale_date->format('m/d/Y g:i A') }}</strong>
+                </div>
 
-
-        <div class="sale-summary">
-
-            <div>
-                <span>Total</span>
-                <strong id="mTotal">₱0.00</strong>
+                <div>
+                    <span>Recorded By</span>
+                    <strong>{{ $completedSale->user?->username ?? '—' }}</strong>
+                </div>
             </div>
 
-            <div>
-                <span>Payment</span>
-                <strong id="mPayment">₱0.00</strong>
+
+            <div id="modalItems">
+                @foreach($completedSale->items as $item)
+                    @php
+                        $productUnit = $item->productUnit;
+                        $product = $productUnit?->product;
+                        $unit = $productUnit?->unit;
+                        $quantity = rtrim(rtrim(number_format((float) $item->quantity, 2), '0'), '.');
+                    @endphp
+
+                    <div class="sale-modal-item">
+                        <div>
+                            <strong>{{ $product?->product_name ?? 'Product' }}</strong>
+                            <div class="muted">
+                                {{ $quantity }}
+                                {{ $unit?->unit_name ?? 'Unit' }}
+                                ×
+                                ₱{{ number_format((float) $item->unit_price, 2) }}
+                            </div>
+                        </div>
+
+                        <strong>₱{{ number_format((float) $item->subtotal, 2) }}</strong>
+                    </div>
+                @endforeach
             </div>
 
-            <div>
-                <span>Change</span>
-                <strong id="mChange" class="sale-green">
-                    ₱0.00
-                </strong>
+
+            <div class="sale-summary">
+
+                <div>
+                    <span>Total</span>
+                    <strong id="mTotal">₱{{ number_format((float) $completedSale->total_amount, 2) }}</strong>
+                </div>
+
+                <div>
+                    <span>Payment</span>
+                    <strong id="mPayment">₱{{ number_format($receiptPayment, 2) }}</strong>
+                </div>
+
+                <div>
+                    <span>Change</span>
+                    <strong id="mChange" class="sale-green">
+                        ₱{{ number_format($receiptChange, 2) }}
+                    </strong>
+                </div>
+
             </div>
 
-            <div>
-                <span>Delivery</span>
-                <strong id="mDelivery">
-                    No
-                </strong>
-            </div>
 
-            <div>
-                <span>Status</span>
-                <strong id="mStatus">
-                    Completed
-                </strong>
-            </div>
+            @if($completedSale->delivery_required)
+                <div
+                    class="sale-delivery-summary"
+                    id="mDeliveryDetails"
+                >
+                    <strong>Delivery Details</strong>
+                    <div>
+                        <span>Customer Name:</span>
+                        {{ $completedSale->customer_name }}
+                    </div>
+                    <div>
+                        <span>Contact Number:</span>
+                        {{ $completedSale->customer_contact_number }}
+                    </div>
+                    <div>
+                        <span>Address:</span>
+                        {{ $completedSale->delivery_address }}
+                    </div>
+                </div>
+            @endif
 
-        </div>
+        @endif
 
 
         <div class="sale-modal-actions">
@@ -582,15 +621,15 @@
                 class="btn light"
                 id="cancelModal"
             >
-                Go Back
+                Close
             </button>
 
             <button
                 type="button"
                 class="btn success"
-                id="confirmSale"
+                onclick="window.print()"
             >
-                Confirm Sale
+                Print Receipt
             </button>
 
         </div>
@@ -607,8 +646,11 @@
     /* ====================================================== */
 
     .cashier-filter-card {
-        margin-bottom: 16px;
+        margin-top: 14px;
         padding: 14px;
+        border: 1px solid #e8edf5;
+        border-radius: 10px;
+        background: #ffffff;
     }
 
     .cashier-filters {
@@ -616,7 +658,6 @@
         grid-template-columns:
             minmax(260px, 1fr)
             180px
-            150px
             auto;
         gap: 10px;
         align-items: center;
@@ -627,19 +668,9 @@
         min-width: 0;
     }
 
-    .cashier-search-icon {
-        position: absolute;
-        left: 13px;
-        top: 50%;
-        transform: translateY(-50%);
-        z-index: 1;
-        color: #8793a5;
-        pointer-events: none;
-    }
-
     .cashier-search {
         width: 100%;
-        padding-left: 40px !important;
+        padding-left: 14px !important;
     }
 
     .cashier-filter-select {
@@ -678,58 +709,35 @@
 
 
     .cashier-product-scroll {
-        max-height: 570px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 18px;
+        max-height: 55vh;
         overflow-y: auto;
-        overflow-x: hidden;
-
-        margin-top: 20px;
-        padding-right: 8px;
-
-        scrollbar-gutter: stable;
-    }
-
-
-    .cashier-product-scroll::-webkit-scrollbar {
-        width: 8px;
-    }
-
-    .cashier-product-scroll::-webkit-scrollbar-track {
-        background: #f1f4f8;
-        border-radius: 10px;
-    }
-
-    .cashier-product-scroll::-webkit-scrollbar-thumb {
-        background: #c7cfda;
-        border-radius: 10px;
+        padding-right: 6px;
     }
 
 
     .cashier-product-row {
-        display: grid;
-
-        grid-template-columns:
-            minmax(170px, 1fr)
-            minmax(210px, 1.25fr)
-            90px
-            90px;
-
-        gap: 12px;
-        align-items: end;
-
-        padding: 18px 0;
-
-        border-bottom: 1px solid #e9edf3;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-height: 168px;
+        padding: 16px;
+        border: 1px solid #e9edf3;
+        border-radius: 10px;
+        background: #ffffff;
     }
 
 
-    .cashier-product-row:first-child {
-        padding-top: 4px;
-    }
+
 
 
     .cashier-product-info {
         min-width: 0;
-        align-self: center;
+        align-self: stretch;
+        text-align: left;
     }
 
 
@@ -770,47 +778,108 @@
         color: #d13e3e;
         background: #fff0f0;
     }
-
-
-    .cashier-control,
-    .cashier-add-control {
+    .cashier-unit-actions {
         min-width: 0;
+        margin-top: auto;
     }
 
 
-    .cashier-control label,
-    .cashier-add-control label {
+    .cashier-unit-actions label {
         display: block;
-
-        margin-bottom: 6px;
-
+        margin-bottom: 8px;
         color: #778397;
-
         font-size: 11px;
         font-weight: 700;
     }
 
 
-    .cashier-unit-select {
-        width: 100%;
+    .cashier-unit-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
     }
 
 
-    .cashier-product-qty {
-        width: 100%;
-        text-align: center;
+    .cashier-product-pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 12px;
+        margin-top: 16px;
     }
 
 
-    .cashier-add-button {
-        width: 100%;
-        white-space: nowrap;
+    .cashier-unit-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        min-height: 42px;
+        padding: 10px 12px;
+        border: 1px solid #dfe5ee;
+        border-radius: 8px;
+        background: #f8fafc;
+        color: #182033;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 700;
     }
 
 
-    .cashier-add-button:disabled {
+    .cashier-unit-button:hover:not(:disabled) {
+        border-color: #2468ee;
+        background: #f4f8ff;
+        color: #2468ee;
+    }
+
+
+    .cashier-unit-button:disabled {
         opacity: .45;
         cursor: not-allowed;
+    }
+
+
+    .cashier-unit-button strong {
+        font-size: 12px;
+    }
+
+
+    .cashier-order-stepper {
+        display: grid;
+        grid-template-columns: 30px minmax(34px, 1fr) 30px;
+        align-items: center;
+        gap: 6px;
+    }
+
+
+    .cashier-quantity-button {
+        height: 34px;
+        border: 1px solid #d9e0ea;
+        border-radius: 8px;
+        background: #ffffff;
+        color: #182033;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 800;
+    }
+
+
+    .cashier-quantity-button:hover:not(:disabled) {
+        border-color: #2468ee;
+        color: #2468ee;
+    }
+
+
+    .cashier-order-qty-text {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 34px;
+        border: 1px solid #dfe5ee;
+        border-radius: 8px;
+        background: #f8fafc;
+        color: #182033;
+        font-weight: 700;
     }
 
 
@@ -841,7 +910,7 @@
 
         grid-template-columns:
             minmax(0, 1fr)
-            82px
+            116px
             95px
             34px;
 
@@ -957,6 +1026,30 @@
     }
 
 
+    .cashier-delivery-fields {
+        display: none;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+    }
+
+
+    .cashier-delivery-fields.open {
+        display: grid;
+    }
+
+
+    .cashier-delivery-address {
+        grid-column: 1 / -1;
+    }
+
+
+    .cashier-delivery-fields textarea {
+        width: 100%;
+        resize: vertical;
+    }
+
+
     .cashier-review-button {
         width: 100%;
         margin-top: 22px;
@@ -990,11 +1083,11 @@
 
 
     .sale-modal-card {
-        width: min(540px, 100%);
+        width: min(430px, 100%);
 
         overflow: hidden;
 
-        border-radius: 16px;
+        border-radius: 8px;
 
         background: #ffffff;
 
@@ -1009,15 +1102,35 @@
         justify-content: space-between;
         gap: 18px;
 
-        padding: 24px;
+        padding: 22px 24px 18px;
 
         border-bottom:
-            1px solid #edf0f4;
+            1px dashed #cbd5e1;
+    }
+
+
+    .sale-receipt-store {
+        color: #0f172a;
+        font-size: 15px;
+        font-weight: 900;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+
+    .sale-receipt-store-subtitle {
+        margin-top: 2px;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .03em;
+        text-transform: uppercase;
     }
 
 
     .sale-modal-head h2 {
-        margin: 0 0 4px 0;
+        margin: 14px 0 4px 0;
+        font-size: 20px;
     }
 
 
@@ -1037,7 +1150,7 @@
         max-height: 260px;
         overflow-y: auto;
 
-        padding: 8px 24px;
+        padding: 10px 24px;
     }
 
 
@@ -1049,12 +1162,72 @@
         padding: 13px 0;
 
         border-bottom:
-            1px solid #edf0f4;
+            1px dashed #d8dee8;
+    }
+
+    .sale-receipt-meta {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        padding: 16px 24px 8px;
+    }
+
+
+    .sale-receipt-meta > div {
+        padding: 12px;
+        border: 1px dashed #d8dee8;
+        border-radius: 8px;
+        background: #fbfdff;
+    }
+
+
+    .sale-receipt-meta span {
+        display: block;
+        margin-bottom: 4px;
+        color: #718096;
+        font-size: 12px;
     }
 
 
     .sale-summary {
-        padding: 18px 24px;
+        margin: 0 24px;
+        padding: 14px 0;
+        border-bottom: 1px dashed #cbd5e1;
+    }
+
+
+    .sale-delivery-summary {
+        margin: 14px 24px 0;
+        padding: 12px 0 0;
+        border-top: 1px dashed #cbd5e1;
+        background: #ffffff;
+        color: #182033;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+
+    .sale-delivery-summary strong {
+        display: block;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+    }
+
+
+    .sale-delivery-summary span {
+        font-weight: 800;
+    }
+
+
+    .cashier-order-qty-input {
+        width: 54px;
+        min-height: 34px;
+        border: 1px solid #d9e1ec;
+        border-radius: 8px;
+        background: #f8fafc;
+        color: #0f172a;
+        text-align: center;
+        font-weight: 800;
     }
 
 
@@ -1079,7 +1252,33 @@
 
         padding: 18px 24px;
 
-        background: #f7f9fc;
+        background: #ffffff;
+    }
+
+
+    @media print {
+
+        .sidebar,
+        .sales-module-tabs,
+        .cashier-grid,
+        .sale-modal-close,
+        .sale-modal-actions {
+            display: none !important;
+        }
+
+        .sale-modal {
+            position: static;
+            display: block !important;
+            padding: 0;
+            background: #ffffff;
+        }
+
+        .sale-modal-card {
+            width: 100%;
+            box-shadow: none;
+            border: 1px solid #e5e7eb;
+        }
+
     }
 
 
@@ -1342,18 +1541,37 @@ document.addEventListener('DOMContentLoaded', function () {
                                 </div>
 
                             </div>
+                            <div class="cashier-order-stepper">
+                                <button
+                                    type="button"
+                                    class="cashier-quantity-button"
+                                    data-order-decrease="${item.id}"
+                                >
+                                    -
+                                </button>
 
+                                <input
+                                    type="number"
+                                    class="cashier-order-qty-input"
+                                    data-order-quantity="${item.id}"
+                                    value="${cleanNumber(item.qty)}"
+                                    min="1"
+                                    step="1"
+                                >
+
+                                <button
+                                    type="button"
+                                    class="cashier-quantity-button"
+                                    data-order-increase="${item.id}"
+                                >
+                                    +
+                                </button>
+                            </div>
 
                             <input
-                                class="input cashier-order-qty"
-                                data-id="${item.id}"
-                                type="number"
-                                step="0.001"
-                                min="0.001"
-                                max="${item.available}"
+                                type="hidden"
                                 name="items[${index}][quantity]"
                                 value="${item.qty}"
-                                required
                             >
 
 
@@ -1446,360 +1664,169 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     /* ====================================================== */
-    /* ADD PRODUCT                                            */
+    /* ADD SELLING UNIT                                       */
     /* ====================================================== */
+
+    function changeUnitQuantity(unit, changeBy) {
+
+        const unitId =
+            String(unit.id);
+
+        const existingQuantity =
+            items[unitId]
+                ? Number(items[unitId].qty)
+                : 0;
+
+        const newQuantity =
+            existingQuantity +
+            Number(changeBy);
+
+
+        if (newQuantity <= 0) {
+            delete items[unitId];
+            renderOrder();
+            return;
+        }
+
+
+        if (
+            newQuantity >
+            Number(unit.available) +
+            0.000001
+        ) {
+            alert(
+                'Only ' +
+                cleanNumber(unit.available) +
+                ' ' +
+                unit.unit +
+                ' available.'
+            );
+
+            return;
+        }
+
+
+        const usedByOtherUnits =
+            calculateUsedBaseStock(
+                unit.product_id,
+                unitId
+            );
+
+        const requiredByThisUnit =
+            newQuantity *
+            Number(unit.factor);
+
+
+        if (
+            usedByOtherUnits +
+            requiredByThisUnit >
+            Number(unit.base_stock) +
+            0.000001
+        ) {
+            alert(
+                'The selected quantity exceeds the available stock for ' +
+                unit.name +
+                '.'
+            );
+
+            return;
+        }
+
+
+        items[unitId] = {
+            id: Number(unit.id),
+            product_id: Number(unit.product_id),
+            name: unit.name,
+            unit: unit.unit,
+            price: Number(unit.price),
+            factor: Number(unit.factor),
+            available: Number(unit.available),
+            base_stock: Number(unit.base_stock),
+            qty: newQuantity
+        };
+
+
+        renderOrder();
+
+    }
+
+
+    function readUnitFromButton(button) {
+
+        try {
+            return JSON.parse(
+                button.dataset.unit
+            );
+        }
+        catch (error) {
+            alert(
+                'Unable to read the selected selling unit.'
+            );
+
+            return null;
+        }
+
+    }
+
 
     document
         .querySelectorAll(
-            '.cashier-add-button'
+            '.cashier-unit-button'
         )
         .forEach(
             function (button) {
-
                 button.addEventListener(
                     'click',
                     function () {
+                        const unit =
+                            readUnitFromButton(button);
 
-                        const row =
-                            button.closest(
-                                '.cashier-product-row'
-                            );
-
-
-                        const select =
-                            row.querySelector(
-                                '.cashier-unit-select'
-                            );
-
-
-                        const quantityInput =
-                            row.querySelector(
-                                '.cashier-product-qty'
-                            );
-
-
-                        const selectedOption =
-                            select.options[
-                                select.selectedIndex
-                            ];
-
-
-                        if (!selectedOption) {
-                            return;
+                        if (unit) {
+                            changeUnitQuantity(unit, 1);
                         }
-
-
-                        let unit;
-
-
-                        try {
-
-                            unit =
-                                JSON.parse(
-                                    selectedOption.dataset.unit
-                                );
-
-                        }
-                        catch (error) {
-
-                            alert(
-                                'Unable to read the selected selling unit.'
-                            );
-
-                            return;
-
-                        }
-
-
-                        const quantity =
-                            Number(
-                                quantityInput.value
-                            );
-
-
-                        if (
-                            !Number.isFinite(quantity) ||
-                            quantity <= 0
-                        ) {
-
-                            alert(
-                                'Quantity must be greater than zero.'
-                            );
-
-                            quantityInput.focus();
-
-                            return;
-
-                        }
-
-
-                        const unitId =
-                            String(unit.id);
-
-
-                        const existingQuantity =
-                            items[unitId]
-                                ? Number(
-                                    items[unitId].qty
-                                )
-                                : 0;
-
-
-                        const newQuantity =
-                            existingQuantity +
-                            quantity;
-
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Check selected selling-unit availability.
-                        |--------------------------------------------------------------------------
-                        */
-
-                        if (
-                            newQuantity >
-                            Number(unit.available) +
-                            0.000001
-                        ) {
-
-                            alert(
-                                'Only ' +
-                                cleanNumber(
-                                    unit.available
-                                ) +
-                                ' ' +
-                                unit.unit +
-                                ' available.'
-                            );
-
-                            return;
-
-                        }
-
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Check the SAME product across ALL selling units.
-                        |--------------------------------------------------------------------------
-                        |
-                        | Example:
-                        |
-                        | Sand:
-                        | 10 sacks + 1 cubic meter
-                        |
-                        | Both use the same Sand base inventory.
-                        |
-                        */
-
-                        const usedByOtherUnits =
-                            calculateUsedBaseStock(
-                                unit.product_id,
-                                unitId
-                            );
-
-
-                        const requiredByThisUnit =
-                            newQuantity *
-                            Number(unit.factor);
-
-
-                        const totalRequiredBase =
-                            usedByOtherUnits +
-                            requiredByThisUnit;
-
-
-                        if (
-                            totalRequiredBase >
-                            Number(unit.base_stock) +
-                            0.000001
-                        ) {
-
-                            alert(
-                                'The selected quantity exceeds the available stock for ' +
-                                unit.name +
-                                '.'
-                            );
-
-                            return;
-
-                        }
-
-
-                        items[unitId] = {
-
-                            id:
-                                Number(unit.id),
-
-                            product_id:
-                                Number(
-                                    unit.product_id
-                                ),
-
-                            name:
-                                unit.name,
-
-                            unit:
-                                unit.unit,
-
-                            price:
-                                Number(
-                                    unit.price
-                                ),
-
-                            factor:
-                                Number(
-                                    unit.factor
-                                ),
-
-                            available:
-                                Number(
-                                    unit.available
-                                ),
-
-                            base_stock:
-                                Number(
-                                    unit.base_stock
-                                ),
-
-                            qty:
-                                newQuantity
-
-                        };
-
-
-                        quantityInput.value = 1;
-
-
-                        renderOrder();
-
                     }
                 );
-
             }
         );
 
-
-    /* ====================================================== */
-    /* UPDATE CART QUANTITY                                   */
-    /* ====================================================== */
 
     byId('order')
         .addEventListener(
             'change',
             function (event) {
 
-                if (
-                    !event.target.classList.contains(
-                        'cashier-order-qty'
-                    )
-                ) {
+                const quantityInput =
+                    event.target.closest(
+                        '[data-order-quantity]'
+                    );
+
+                if (!quantityInput) {
                     return;
                 }
 
-
-                const unitId =
-                    event.target.dataset.id;
-
-
                 const item =
-                    items[unitId];
-
+                    items[quantityInput.dataset.orderQuantity];
 
                 if (!item) {
                     return;
                 }
 
+                const requestedQuantity =
+                    Number(quantityInput.value || 0);
 
-                const newQuantity =
-                    Number(
-                        event.target.value
-                    );
+                const currentQuantity =
+                    Number(item.qty);
 
-
-                if (
-                    !Number.isFinite(newQuantity) ||
-                    newQuantity <= 0
-                ) {
-
-                    alert(
-                        'Quantity must be greater than zero.'
-                    );
-
-                    event.target.value =
-                        item.qty;
-
-                    return;
-
-                }
-
-
-                if (
-                    newQuantity >
-                    Number(item.available) +
-                    0.000001
-                ) {
-
-                    alert(
-                        'Only ' +
-                        cleanNumber(
-                            item.available
-                        ) +
-                        ' ' +
-                        item.unit +
-                        ' available.'
-                    );
-
-                    event.target.value =
-                        item.qty;
-
-                    return;
-
-                }
-
-
-                const usedByOtherUnits =
-                    calculateUsedBaseStock(
-                        item.product_id,
-                        unitId
-                    );
-
-
-                const requiredByThisUnit =
-                    newQuantity *
-                    Number(item.factor);
-
-
-                if (
-                    usedByOtherUnits +
-                    requiredByThisUnit >
-                    Number(item.base_stock) +
-                    0.000001
-                ) {
-
-                    alert(
-                        'The quantity exceeds the remaining stock for this product.'
-                    );
-
-                    event.target.value =
-                        item.qty;
-
-                    return;
-
-                }
-
-
-                item.qty =
-                    newQuantity;
-
-
-                renderOrder();
+                changeUnitQuantity(
+                    item,
+                    requestedQuantity - currentQuantity
+                );
 
             }
         );
 
-
     /* ====================================================== */
-    /* REMOVE CART ITEM                                       */
+    /* CURRENT ORDER CONTROLS                                 */
     /* ====================================================== */
 
     byId('order')
@@ -1807,19 +1834,52 @@ document.addEventListener('DOMContentLoaded', function () {
             'click',
             function (event) {
 
-                const button =
+                const increaseButton =
+                    event.target.closest(
+                        '[data-order-increase]'
+                    );
+
+                if (increaseButton) {
+                    const item =
+                        items[increaseButton.dataset.orderIncrease];
+
+                    if (item) {
+                        changeUnitQuantity(item, 1);
+                    }
+
+                    return;
+                }
+
+
+                const decreaseButton =
+                    event.target.closest(
+                        '[data-order-decrease]'
+                    );
+
+                if (decreaseButton) {
+                    const item =
+                        items[decreaseButton.dataset.orderDecrease];
+
+                    if (item) {
+                        changeUnitQuantity(item, -1);
+                    }
+
+                    return;
+                }
+
+
+                const removeButton =
                     event.target.closest(
                         '[data-remove]'
                     );
 
-
-                if (!button) {
+                if (!removeButton) {
                     return;
                 }
 
 
                 delete items[
-                    button.dataset.remove
+                    removeButton.dataset.remove
                 ];
 
 
@@ -1828,10 +1888,93 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         );
 
+    /* ====================================================== */
+    /* FILTER / PAGINATE PRODUCTS                             */
+    /* ====================================================== */
 
-    /* ====================================================== */
-    /* FILTER PRODUCTS                                        */
-    /* ====================================================== */
+    const productsPerPage = 10;
+    let currentProductPage = 1;
+    let filteredProductRows = [];
+
+
+    function renderProductPage() {
+
+        const totalPages =
+            Math.max(
+                1,
+                Math.ceil(
+                    filteredProductRows.length /
+                    productsPerPage
+                )
+            );
+
+
+        currentProductPage =
+            Math.min(
+                currentProductPage,
+                totalPages
+            );
+
+
+        const start =
+            (currentProductPage - 1) *
+            productsPerPage;
+
+        const end =
+            start +
+            productsPerPage;
+
+
+        document
+            .querySelectorAll(
+                '.product-filter-row'
+            )
+            .forEach(
+                function (row) {
+                    row.style.display = 'none';
+                }
+            );
+
+
+        filteredProductRows
+            .slice(start, end)
+            .forEach(
+                function (row) {
+                    row.style.display = 'flex';
+                }
+            );
+
+
+        byId('noFilterResults')
+            .style.display =
+                filteredProductRows.length === 0
+                    ? 'block'
+                    : 'none';
+
+
+        byId('productPagination')
+            .style.display =
+                filteredProductRows.length > productsPerPage
+                    ? 'flex'
+                    : 'none';
+
+
+        byId('productPageInfo')
+            .textContent =
+                'Page ' +
+                currentProductPage +
+                ' of ' +
+                totalPages;
+
+
+        byId('productPrevPage').disabled =
+            currentProductPage <= 1;
+
+        byId('productNextPage').disabled =
+            currentProductPage >= totalPages;
+
+    }
+
 
     function filterProducts() {
 
@@ -1849,19 +1992,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 .toLowerCase();
 
 
-        const stock =
-            byId('stockFilter')
-                .value;
-
-
-        let visibleCount = 0;
-
-
-        document
-            .querySelectorAll(
-                '.product-filter-row'
-            )
-            .forEach(
+        filteredProductRows =
+            Array.from(
+                document.querySelectorAll(
+                    '.product-filter-row'
+                )
+            ).filter(
                 function (row) {
 
                     const matchesSearch =
@@ -1877,37 +2013,14 @@ document.addEventListener('DOMContentLoaded', function () {
                         category;
 
 
-                    const matchesStock =
-                        stock === '' ||
-                        row.dataset.stock ===
-                        stock;
-
-
-                    const visible =
-                        matchesSearch &&
-                        matchesCategory &&
-                        matchesStock;
-
-
-                    row.style.display =
-                        visible
-                            ? 'grid'
-                            : 'none';
-
-
-                    if (visible) {
-                        visibleCount++;
-                    }
+                    return matchesSearch && matchesCategory;
 
                 }
             );
 
 
-        byId('noFilterResults')
-            .style.display =
-                visibleCount === 0
-                    ? 'block'
-                    : 'none';
+        currentProductPage = 1;
+        renderProductPage();
 
     }
 
@@ -1926,19 +2039,31 @@ document.addEventListener('DOMContentLoaded', function () {
         );
 
 
-    byId('stockFilter')
-        .addEventListener(
-            'change',
-            filterProducts
-        );
-
-
     byId('filterButton')
         .addEventListener(
             'click',
             filterProducts
         );
 
+
+    byId('productPrevPage')
+        .addEventListener(
+            'click',
+            function () {
+                currentProductPage--;
+                renderProductPage();
+            }
+        );
+
+
+    byId('productNextPage')
+        .addEventListener(
+            'click',
+            function () {
+                currentProductPage++;
+                renderProductPage();
+            }
+        );
 
     /* ====================================================== */
     /* PAYMENT                                                */
@@ -1951,20 +2076,58 @@ document.addEventListener('DOMContentLoaded', function () {
         );
 
 
+    function toggleDeliveryFields() {
+
+        const checked =
+            byId('delivery').checked;
+
+
+        byId('deliveryFields')
+            .classList
+            .toggle('open', checked);
+
+
+        [
+            byId('customerName'),
+            byId('customerContactNumber'),
+            byId('deliveryAddress')
+        ].forEach(
+            function (field) {
+                field.required = checked;
+            }
+        );
+
+    }
+
+
+    byId('delivery')
+        .addEventListener(
+            'change',
+            toggleDeliveryFields
+        );
+
+
     /* ====================================================== */
-    /* REVIEW SALE                                            */
+    /* CONFIRM SALE / SAVE TRANSACTION                         */
     /* ====================================================== */
 
     function closeModal() {
 
-        byId('saleModal')
+        const saleModal =
+            byId('saleModal');
+
+        if (!saleModal) {
+            return;
+        }
+
+        saleModal
             .classList
             .remove('open');
 
     }
 
 
-    byId('reviewSale')
+    byId('confirmSaleButton')
         .addEventListener(
             'click',
             function () {
@@ -1983,6 +2146,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     return;
 
+                }
+
+
+                toggleDeliveryFields();
+
+
+                if (!byId('saleForm').reportValidity()) {
+                    return;
                 }
 
 
@@ -2012,167 +2183,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
 
 
-                byId('modalItems')
-                    .innerHTML =
-                        orderItems.map(
-                            function (item) {
-
-                                return `
-
-                                    <div class="sale-modal-item">
-
-                                        <div>
-
-                                            <strong>
-                                                ${escapeHtml(
-                                                    item.name
-                                                )}
-                                            </strong>
-
-                                            <div class="muted">
-
-                                                ${cleanNumber(
-                                                    item.qty
-                                                )}
-
-                                                ${escapeHtml(
-                                                    item.unit
-                                                )}
-
-                                                ×
-
-                                                ${money(
-                                                    item.price
-                                                )}
-
-                                            </div>
-
-                                        </div>
-
-
-                                        <strong>
-
-                                            ${money(
-                                                Number(
-                                                    item.qty
-                                                ) *
-                                                Number(
-                                                    item.price
-                                                )
-                                            )}
-
-                                        </strong>
-
-                                    </div>
-
-                                `;
-
-                            }
-                        ).join('');
-
-
-                byId('mTotal')
-                    .textContent =
-                        money(total);
-
-
-                byId('mPayment')
-                    .textContent =
-                        money(payment);
-
-
-                byId('mChange')
-                    .textContent =
-                        money(
-                            payment - total
-                        );
-
-
-                const deliveryRequired =
-                    byId('delivery').checked;
-
-
-                byId('mDelivery')
-                    .textContent =
-                        deliveryRequired
-                            ? 'Yes'
-                            : 'No';
-
-
-                byId('mStatus')
-                    .textContent =
-                        deliveryRequired
-                            ? 'Pending Delivery'
-                            : 'Completed';
-
-
-                byId('confirmSale')
-                    .textContent =
-                        deliveryRequired
-                            ? 'Confirm Pending Delivery'
-                            : 'Confirm Sale';
-
-
-                byId('saleModal')
-                    .classList
-                    .add('open');
-
-            }
-        );
-
-
-    /* ====================================================== */
-    /* CLOSE MODAL                                            */
-    /* ====================================================== */
-
-    byId('closeModal')
-        .addEventListener(
-            'click',
-            closeModal
-        );
-
-
-    byId('cancelModal')
-        .addEventListener(
-            'click',
-            closeModal
-        );
-
-
-    byId('saleModal')
-        .addEventListener(
-            'click',
-            function (event) {
-
-                if (
-                    event.target ===
-                    byId('saleModal')
-                ) {
-                    closeModal();
-                }
-
-            }
-        );
-
-
-    /* ====================================================== */
-    /* CONFIRM / SUBMIT                                       */
-    /* ====================================================== */
-
-    byId('confirmSale')
-        .addEventListener(
-            'click',
-            function () {
-
-                if (
-                    Object.keys(items).length === 0
-                ) {
-                    return;
-                }
-
-
                 const button =
-                    byId('confirmSale');
+                    byId('confirmSaleButton');
 
 
                 button.disabled =
@@ -2180,7 +2192,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
                 button.textContent =
-                    'Processing...';
+                    'PROCESSING...';
 
 
                 byId('saleForm')
@@ -2191,11 +2203,62 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     /* ====================================================== */
+    /* CLOSE RECEIPT MODAL                                    */
+    /* ====================================================== */
+
+    const closeModalButton =
+        byId('closeModal');
+
+    const cancelModalButton =
+        byId('cancelModal');
+
+    const saleModal =
+        byId('saleModal');
+
+
+    if (closeModalButton) {
+        closeModalButton
+            .addEventListener(
+                'click',
+                closeModal
+            );
+    }
+
+
+    if (cancelModalButton) {
+        cancelModalButton
+            .addEventListener(
+                'click',
+                closeModal
+            );
+    }
+
+
+    if (saleModal) {
+        saleModal
+            .addEventListener(
+                'click',
+                function (event) {
+
+                    if (
+                        event.target ===
+                        saleModal
+                    ) {
+                        closeModal();
+                    }
+
+                }
+            );
+    }
+
+
+    /* ====================================================== */
     /* INITIALIZE                                             */
     /* ====================================================== */
 
     renderOrder();
     filterProducts();
+    toggleDeliveryFields();
 
 });
 

@@ -4,20 +4,6 @@
 
 @section('content')
 
-<div class="top">
-    <div>
-        <h1>Products & Inventory</h1>
-
-        <div class="muted">
-            Maintain construction materials and monitor available quantities
-        </div>
-    </div>
-
-    <div class="who">
-        Owner
-    </div>
-</div>
-
 <div class="tabs">
     <a href="{{ route('products.index') }}">Products</a>
     <a href="{{ route('categories.index') }}">Categories</a>
@@ -514,6 +500,24 @@
 
 <style>
 
+html,
+body {
+    overflow: hidden;
+}
+
+.main {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.tabs,
+.inventory-toolbar {
+    flex: 0 0 auto;
+}
+
 /* =========================================================
    FILTER
 ========================================================= */
@@ -578,6 +582,10 @@
 ========================================================= */
 
 .inventory-card {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
     background: #fff;
     border-radius: 14px;
     overflow: hidden;
@@ -585,6 +593,7 @@
 }
 
 .inventory-card-header {
+    flex: 0 0 auto;
     min-height: 88px;
     padding: 20px 24px;
     display: flex;
@@ -618,11 +627,19 @@
 ========================================================= */
 
 .inventory-table-wrapper {
-    overflow-x: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
 }
 
 .inventory-table {
     width: 100%;
+}
+
+.inventory-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
 .inventory-table th {

@@ -4,22 +4,6 @@
 
 @section('content')
 
-<div class="top">
-
-    <div>
-        <h1>Units of Measure</h1>
-
-        <div class="muted">
-            Maintain the units used when construction materials are purchased and sold.
-        </div>
-    </div>
-
-    <div class="who">
-        Owner
-    </div>
-
-</div>
-
 <div class="tabs">
     <a href="{{ route('products.index') }}">Products</a>
     <a href="{{ route('categories.index') }}">Categories</a>
@@ -312,6 +296,19 @@
                             {{-- ACTION --}}
                             <td>
 
+                                <div class="unit-actions">
+
+                                <button
+                                    type="button"
+                                    class="btn light small unit-edit-button"
+                                    data-update-url="{{ route('units.update', $unit) }}"
+                                    data-name="{{ $unit->unit_name }}"
+                                    data-symbol="{{ $unit->unit_symbol }}"
+                                    data-type="{{ $unit->unit_type }}"
+                                >
+                                    Edit
+                                </button>
+
                                 <form
                                     method="POST"
                                     action="{{ route(
@@ -348,6 +345,8 @@
 
                                 </form>
 
+                                </div>
+
                             </td>
 
                         </tr>
@@ -375,6 +374,104 @@
             </table>
 
         </div>
+
+    </div>
+
+</div>
+
+
+{{-- =========================================================
+     EDIT UNIT MODAL
+========================================================= --}}
+
+<div
+    class="units-modal-overlay"
+    id="editUnitModal"
+>
+
+    <div class="units-modal unit-form-modal">
+
+        <h2>
+            Edit Unit
+        </h2>
+
+
+        <p>
+            Update the selected unit of measure.
+        </p>
+
+
+        <form
+            method="POST"
+            id="editUnitForm"
+        >
+            @csrf
+            @method('PUT')
+
+            <div class="field">
+                <label for="edit_unit_name">
+                    Unit Name
+                </label>
+
+                <input
+                    class="input"
+                    id="edit_unit_name"
+                    name="unit_name"
+                    required
+                    maxlength="100"
+                >
+            </div>
+
+            <div class="field">
+                <label for="edit_unit_symbol">
+                    Symbol
+                </label>
+
+                <input
+                    class="input"
+                    id="edit_unit_symbol"
+                    name="unit_symbol"
+                    required
+                    maxlength="20"
+                >
+            </div>
+
+            <div class="field">
+                <label for="edit_unit_type">
+                    Unit Type
+                </label>
+
+                <select
+                    class="input"
+                    id="edit_unit_type"
+                    name="unit_type"
+                    required
+                >
+                    <option value="COUNT">Count</option>
+                    <option value="LENGTH">Length</option>
+                    <option value="WEIGHT">Weight</option>
+                    <option value="VOLUME">Volume</option>
+                </select>
+            </div>
+
+            <div class="units-modal-actions">
+                <button
+                    type="button"
+                    class="btn light"
+                    id="cancelEditUnit"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="submit"
+                    class="btn primary"
+                    id="saveEditUnit"
+                >
+                    Save Changes
+                </button>
+            </div>
+        </form>
 
     </div>
 
@@ -546,24 +643,55 @@
 
 <style>
 
+html,
+body {
+    overflow: hidden;
+}
+
+.main {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.tabs {
+    flex: 0 0 auto;
+}
+
 /* =========================================================
    LAYOUT
 ========================================================= */
 
 .units-layout {
     display: grid;
+    flex: 1 1 auto;
 
     grid-template-columns:
-        minmax(320px, .95fr)
-        minmax(500px, 1.25fr);
+        minmax(640px, 1.45fr)
+        minmax(360px, .85fr);
 
     gap: 20px;
+    min-height: 0;
 }
 
 
 .units-form-card,
 .units-list-card {
     margin-bottom: 0;
+    min-height: 0;
+}
+
+.units-list-card {
+    display: flex;
+    flex-direction: column;
+    order: 1;
+}
+
+.units-form-card {
+    order: 2;
+    overflow: auto;
 }
 
 
@@ -665,14 +793,24 @@
 ========================================================= */
 
 .units-table-wrapper {
+    flex: 1 1 auto;
+    min-height: 0;
     width: 100%;
 
-    overflow-x: auto;
+    overflow: auto;
+}
+
+
+.units-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
 
 .units-table {
-    min-width: 590px;
+    min-width: 0;
+    width: 100%;
 }
 
 
@@ -769,6 +907,16 @@
     min-width: 72px;
 }
 
+.unit-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.unit-actions form {
+    margin: 0;
+}
+
 
 /* Archive = Red */
 
@@ -856,6 +1004,50 @@
     box-shadow:
         0 28px 80px
         rgba(15, 23, 42, .28);
+}
+
+.unit-form-modal {
+    text-align: left;
+}
+
+.unit-form-modal h2,
+.unit-form-modal > p {
+    text-align: left;
+}
+
+.unit-form-modal .field {
+    margin-bottom: 14px;
+}
+
+.unit-form-modal label {
+    display: block;
+    margin-bottom: 7px;
+    color: #182033;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.unit-form-modal .input {
+    width: 100%;
+    height: 41px;
+    box-sizing: border-box;
+    padding: 11px 13px;
+    border: 1px solid #dbe3ef;
+    border-radius: 8px;
+    background: #f5f7fb;
+    color: #182033;
+    font: inherit;
+    outline: none;
+}
+
+.unit-form-modal .input:focus {
+    background: #fff;
+    border-color: #93b4ef;
+}
+
+.unit-form-modal .units-modal-actions {
+    justify-content: flex-end;
+    margin-top: 20px;
 }
 
 
@@ -1165,6 +1357,116 @@ document.addEventListener(
 
         /*
         |--------------------------------------------------------------------------
+        | EDIT UNIT MODAL
+        |--------------------------------------------------------------------------
+        */
+
+        const editModal =
+            document.getElementById(
+                'editUnitModal'
+            );
+
+
+        const editForm =
+            document.getElementById(
+                'editUnitForm'
+            );
+
+
+        const cancelEditButton =
+            document.getElementById(
+                'cancelEditUnit'
+            );
+
+
+        const saveEditButton =
+            document.getElementById(
+                'saveEditUnit'
+            );
+
+
+        document
+            .querySelectorAll(
+                '.unit-edit-button'
+            )
+            .forEach(function (button) {
+
+                button.addEventListener(
+                    'click',
+                    function () {
+
+                        editForm.action =
+                            button.dataset.updateUrl;
+
+                        saveEditButton.disabled =
+                            false;
+
+
+                        saveEditButton.textContent =
+                            'Save Changes';
+
+
+                        document.getElementById(
+                            'edit_unit_name'
+                        ).value =
+                            button.dataset.name || '';
+
+
+                        document.getElementById(
+                            'edit_unit_symbol'
+                        ).value =
+                            button.dataset.symbol || '';
+
+
+                        document.getElementById(
+                            'edit_unit_type'
+                        ).value =
+                            button.dataset.type || 'COUNT';
+
+
+                        editModal.classList.add(
+                            'show'
+                        );
+
+
+                        document.body.style.overflow =
+                            'hidden';
+
+                    }
+                );
+
+            });
+
+
+        cancelEditButton.addEventListener(
+            'click',
+            function () {
+
+                closeModal(
+                    editModal
+                );
+
+            }
+        );
+
+
+        editForm.addEventListener(
+            'submit',
+            function () {
+
+                saveEditButton.disabled =
+                    true;
+
+
+                saveEditButton.textContent =
+                    'Saving...';
+
+            }
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
         | ARCHIVE / RESTORE
         |--------------------------------------------------------------------------
         */
@@ -1400,6 +1702,22 @@ document.addEventListener(
         );
 
 
+        editModal.addEventListener(
+            'click',
+            function (event) {
+
+                if (event.target === editModal) {
+
+                    closeModal(
+                        editModal
+                    );
+
+                }
+
+            }
+        );
+
+
         toggleModal.addEventListener(
             'click',
             function (event) {
@@ -1431,6 +1749,19 @@ document.addEventListener(
 
                     closeModal(
                         addModal
+                    );
+
+                }
+
+
+                if (
+                    editModal.classList.contains(
+                        'show'
+                    )
+                ) {
+
+                    closeModal(
+                        editModal
                     );
 
                 }

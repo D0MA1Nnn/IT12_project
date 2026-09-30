@@ -46,7 +46,6 @@ class DashboardController extends Controller
                 true
             )->count();
 
-
             /*
             |--------------------------------------------------------------------------
             | Category Count
@@ -57,7 +56,6 @@ class DashboardController extends Controller
                 'is_active',
                 true
             )->count();
-
 
             /*
             |--------------------------------------------------------------------------
@@ -70,7 +68,6 @@ class DashboardController extends Controller
                 true
             )->count();
 
-
             /*
             |--------------------------------------------------------------------------
             | User Count
@@ -82,7 +79,6 @@ class DashboardController extends Controller
                 true
             )->count();
 
-
             /*
             |--------------------------------------------------------------------------
             | Inventory Count
@@ -90,7 +86,6 @@ class DashboardController extends Controller
             */
 
             $inventoryCount = Inventory::count();
-
 
             /*
             |--------------------------------------------------------------------------
@@ -120,7 +115,6 @@ class DashboardController extends Controller
                 })
                 ->count();
 
-
             /*
             |--------------------------------------------------------------------------
             | Total Purchase Transactions
@@ -128,7 +122,6 @@ class DashboardController extends Controller
             */
 
             $purchaseCount = Purchase::count();
-
 
             /*
             |--------------------------------------------------------------------------
@@ -138,6 +131,21 @@ class DashboardController extends Controller
 
             $saleCount = Sale::count();
 
+            /*
+            |--------------------------------------------------------------------------
+            | Pending Deliveries
+            |--------------------------------------------------------------------------
+            */
+
+            $pendingDeliveryCount = Sale::where(
+                'delivery_required',
+                true
+            )
+                ->where(
+                    'status',
+                    'PENDING'
+                )
+                ->count();
 
             /*
             |--------------------------------------------------------------------------
@@ -150,12 +158,10 @@ class DashboardController extends Controller
                 today()
             )->count();
 
-
             $todayPurchaseAmount = Purchase::whereDate(
                 'purchase_date',
                 today()
             )->sum('total_amount');
-
 
             /*
             |--------------------------------------------------------------------------
@@ -168,12 +174,10 @@ class DashboardController extends Controller
                 today()
             )->count();
 
-
             $todaySalesAmount = Sale::whereDate(
                 'sale_date',
                 today()
             )->sum('total_amount');
-
 
             /*
             |--------------------------------------------------------------------------
@@ -185,7 +189,7 @@ class DashboardController extends Controller
             */
 
             $lowStockItems = Inventory::with([
-                'product.productUnits.unit'
+                'product.productUnits.unit',
             ])
                 ->whereColumn(
                     'quantity_on_hand',
@@ -204,7 +208,6 @@ class DashboardController extends Controller
                 ->limit(10)
                 ->get();
 
-
             /*
             |--------------------------------------------------------------------------
             | Recent Sales
@@ -216,7 +219,6 @@ class DashboardController extends Controller
                 ->limit(5)
                 ->get();
 
-
             /*
             |--------------------------------------------------------------------------
             | Recent Purchases
@@ -225,12 +227,11 @@ class DashboardController extends Controller
 
             $recentPurchases = Purchase::with([
                 'user',
-                'supplier'
+                'supplier',
             ])
                 ->latest('purchase_date')
                 ->limit(5)
                 ->get();
-
 
             /*
             |--------------------------------------------------------------------------
@@ -242,7 +243,6 @@ class DashboardController extends Controller
                 ->latest('created_at')
                 ->limit(10)
                 ->get();
-
 
             /*
             |--------------------------------------------------------------------------
@@ -263,6 +263,7 @@ class DashboardController extends Controller
 
                     'purchaseCount',
                     'saleCount',
+                    'pendingDeliveryCount',
 
                     'todayPurchaseCount',
                     'todayPurchaseAmount',
@@ -280,7 +281,6 @@ class DashboardController extends Controller
             );
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | SALES CLERK DASHBOARD
@@ -295,18 +295,15 @@ class DashboardController extends Controller
             today()
         )->count();
 
-
         $todaySalesAmount = Sale::whereDate(
             'sale_date',
             today()
         )->sum('total_amount');
 
-
         $recentSales = Sale::with('user')
             ->latest('sale_date')
             ->limit(5)
             ->get();
-
 
         /*
         |--------------------------------------------------------------------------

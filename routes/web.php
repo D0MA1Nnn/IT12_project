@@ -16,7 +16,6 @@ use App\Http\Controllers\UnitOfMeasureController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
-
 /*
 |--------------------------------------------------------------------------
 | Root
@@ -24,7 +23,6 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::redirect('/', '/login');
-
 
 /*
 |--------------------------------------------------------------------------
@@ -46,7 +44,6 @@ Route::middleware('guest')->group(function () {
 
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Authenticated
@@ -60,12 +57,10 @@ Route::middleware('auth')->group(function () {
         [DashboardController::class, 'index']
     )->name('dashboard');
 
-
     Route::post(
         '/logout',
         [AuthController::class, 'logout']
     )->name('logout');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -74,7 +69,6 @@ Route::middleware('auth')->group(function () {
     */
 
     Route::middleware('role:OWNER')->group(function () {
-
 
         /*
         |--------------------------------------------------------------------------
@@ -90,18 +84,15 @@ Route::middleware('auth')->group(function () {
             'destroy',
         ]);
 
-
         Route::patch(
             '/categories/{category}/deactivate',
             [CategoryController::class, 'deactivate']
         )->name('categories.deactivate');
 
-
         Route::patch(
             '/categories/{category}/activate',
             [CategoryController::class, 'activate']
         )->name('categories.activate');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -117,18 +108,15 @@ Route::middleware('auth')->group(function () {
             'destroy',
         ]);
 
-
         Route::patch(
             '/products/{product}/deactivate',
             [ProductController::class, 'deactivate']
         )->name('products.deactivate');
 
-
         Route::patch(
             '/products/{product}/activate',
             [ProductController::class, 'activate']
         )->name('products.activate');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -141,24 +129,20 @@ Route::middleware('auth')->group(function () {
             [ProductUnitController::class, 'index']
         )->name('products.units.index');
 
-
         Route::post(
             '/products/{product}/units',
             [ProductUnitController::class, 'store']
         )->name('products.units.store');
-
 
         Route::put(
             '/products/{product}/units/{productUnit}',
             [ProductUnitController::class, 'update']
         )->name('products.units.update');
 
-
         Route::patch(
             '/products/{product}/units/{productUnit}/toggle',
             [ProductUnitController::class, 'toggle']
         )->name('products.units.toggle');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -171,12 +155,10 @@ Route::middleware('auth')->group(function () {
             [InventoryController::class, 'index']
         )->name('inventory.index');
 
-
         Route::put(
             '/inventory/{inventory}',
             [InventoryController::class, 'update']
         )->name('inventory.update');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -189,24 +171,20 @@ Route::middleware('auth')->group(function () {
             [UnitOfMeasureController::class, 'index']
         )->name('units.index');
 
-
         Route::post(
             '/units',
             [UnitOfMeasureController::class, 'store']
         )->name('units.store');
-
 
         Route::put(
             '/units/{unit}',
             [UnitOfMeasureController::class, 'update']
         )->name('units.update');
 
-
         Route::patch(
             '/units/{unit}/toggle',
             [UnitOfMeasureController::class, 'toggle']
         )->name('units.toggle');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -222,12 +200,10 @@ Route::middleware('auth')->group(function () {
             'destroy',
         ]);
 
-
         Route::patch(
             '/suppliers/{supplier}/toggle',
             [SupplierController::class, 'toggle']
         )->name('suppliers.toggle');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -244,7 +220,6 @@ Route::middleware('auth')->group(function () {
             'store',
         ]);
 
-
         /*
         |--------------------------------------------------------------------------
         | Users
@@ -259,12 +234,10 @@ Route::middleware('auth')->group(function () {
             'destroy',
         ]);
 
-
         Route::patch(
             '/users/{user}/toggle',
             [UserController::class, 'toggle']
         )->name('users.toggle');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -277,7 +250,6 @@ Route::middleware('auth')->group(function () {
             [TransactionController::class, 'index']
         )->name('transactions.index');
 
-
         /*
         |--------------------------------------------------------------------------
         | Activity Logs
@@ -288,7 +260,6 @@ Route::middleware('auth')->group(function () {
             '/activity-logs',
             [ActivityLogController::class, 'index']
         )->name('activity.index');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -301,12 +272,10 @@ Route::middleware('auth')->group(function () {
             [BackupController::class, 'index']
         )->name('backup.index');
 
-
         Route::get(
             '/backup/create',
             [BackupController::class, 'create']
         )->name('backup.create');
-
 
         Route::post(
             '/backup/restore',
@@ -314,7 +283,6 @@ Route::middleware('auth')->group(function () {
         )->name('backup.restore');
 
     });
-
 
     /*
     |--------------------------------------------------------------------------
@@ -325,6 +293,11 @@ Route::middleware('auth')->group(function () {
     Route::middleware(
         'role:OWNER,SALES_CLERK'
     )->group(function () {
+
+        Route::get(
+            '/sales/report',
+            [SaleController::class, 'report']
+        )->name('sales.report');
 
         Route::resource(
             'sales',

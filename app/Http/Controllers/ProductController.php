@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductUnit;
+use App\Models\Supplier;
 use App\Models\UnitOfMeasure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,7 @@ class ProductController extends Controller
             'category',
             'inventory',
             'productUnits.unit',
+            'suppliers',
         ]);
 
         // Search
@@ -80,10 +82,15 @@ class ProductController extends Controller
             ->orderBy('unit_name')
             ->get();
 
+        $suppliers = Supplier::where('is_active', true)
+            ->orderBy('supplier_name')
+            ->get();
+
         return view('products.index', compact(
             'products',
             'categories',
-            'units'
+            'units',
+            'suppliers'
         ));
     }
 
@@ -121,6 +128,8 @@ class ProductController extends Controller
                 'is_base_unit' => true,
                 'is_active' => true,
             ]);
+
+            $product->suppliers()->sync([$data['supplier_id']]);
 
             return $product;
         });
@@ -164,28 +173,64 @@ class ProductController extends Controller
                 ]
             );
 
-            $inventory->update([
-                'reorder_level' => $data['reorder_level'],
-                'last_updated' => now(),
-            ]);
-
             $productUnit = $product->productUnits()
                 ->where('is_base_unit', true)
                 ->first();
 
-            if (!$productUnit) {
-                $productUnit = new ProductUnit();
-                $productUnit->product_id = $product->product_id;
-                $productUnit->is_base_unit = true;
+            $selectedUnit = $product->productUnits()
+                ->where('unit_id', $data['unit_id'])
+                ->first();
+
+            if ($selectedUnit && $productUnit && $selectedUnit->product_unit_id !== $productUnit->product_unit_id) {
+                $oldSelectedConversion = (float) $selectedUnit->conversion_factor;
+
+                if ($oldSelectedConversion <= 0) {
+                    $oldSelectedConversion = 1;
+                }
+
+                $product->productUnits()
+                    ->where('product_unit_id', '!=', $selectedUnit->product_unit_id)
+                    ->get()
+                    ->each(function (ProductUnit $unit) use ($oldSelectedConversion) {
+                        $unit->conversion_factor = (float) $unit->conversion_factor / $oldSelectedConversion;
+                        $unit->is_base_unit = false;
+                        $unit->save();
+                    });
+
+                $selectedUnit->selling_price = $data['selling_price'];
+                $selectedUnit->purchase_cost = $data['purchase_cost'];
+                $selectedUnit->conversion_factor = 1;
+                $selectedUnit->is_base_unit = true;
+                $selectedUnit->is_active = true;
+                $selectedUnit->save();
+
+                $inventory->update([
+                    'quantity_on_hand' => (float) $inventory->quantity_on_hand / $oldSelectedConversion,
+                    'reorder_level' => (float) $data['reorder_level'] / $oldSelectedConversion,
+                    'last_updated' => now(),
+                ]);
+            } else {
+                if (! $productUnit) {
+                    $productUnit = new ProductUnit;
+                    $productUnit->product_id = $product->product_id;
+                    $productUnit->is_base_unit = true;
+                }
+
+                $productUnit->unit_id = $data['unit_id'];
+                $productUnit->selling_price = $data['selling_price'];
+                $productUnit->purchase_cost = $data['purchase_cost'];
+                $productUnit->conversion_factor = 1;
+                $productUnit->is_active = true;
+
+                $productUnit->save();
+
+                $inventory->update([
+                    'reorder_level' => $data['reorder_level'],
+                    'last_updated' => now(),
+                ]);
             }
 
-            $productUnit->unit_id = $data['unit_id'];
-            $productUnit->selling_price = $data['selling_price'];
-            $productUnit->purchase_cost = $data['purchase_cost'];
-            $productUnit->conversion_factor = 1;
-            $productUnit->is_active = true;
-
-            $productUnit->save();
+            $product->suppliers()->sync([$data['supplier_id']]);
         });
 
         $product->refresh();
@@ -249,6 +294,11 @@ class ProductController extends Controller
                 'required',
                 'string',
                 'max:150',
+            ],
+
+            'supplier_id' => [
+                'required',
+                'exists:suppliers,supplier_id',
             ],
 
             'description' => [

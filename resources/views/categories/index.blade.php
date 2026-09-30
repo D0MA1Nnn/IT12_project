@@ -4,17 +4,6 @@
 
 @section('content')
 
-<div class="top">
-    <div>
-        <h1>Categories</h1>
-        <div class="muted">
-            Organize construction materials by category
-        </div>
-    </div>
-
-    <div class="who">Owner</div>
-</div>
-
 <div class="tabs">
     <a href="{{ route('products.index') }}">Products</a>
     <a class="active" href="{{ route('categories.index') }}">Categories</a>
@@ -104,15 +93,6 @@
 
 
     <div class="category-filter-spacer"></div>
-
-
-    {{-- Back to Products --}}
-    <a
-        class="btn light"
-        href="{{ route('products.index') }}"
-    >
-        ← Products
-    </a>
 
 
     {{-- Add Category --}}
@@ -546,6 +526,25 @@
 
 <style>
 
+html,
+body {
+    overflow: hidden;
+}
+
+.main {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.tabs,
+.category-filter-bar,
+.category-pagination {
+    flex: 0 0 auto;
+}
+
 /* =========================================================
    FILTER BAR
 ========================================================= */
@@ -699,11 +698,20 @@
 ========================================================= */
 
 .category-table-container {
+    flex: 1 1 auto;
+    min-height: 0;
     width: 100%;
 
-    overflow-x: auto;
+    overflow: auto;
 
     background: #ffffff;
+}
+
+
+.category-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
 
@@ -776,7 +784,7 @@
     align-items: center;
     justify-content: space-between;
 
-    margin-top: 20px;
+    margin-top: 12px;
 
     gap: 20px;
 
@@ -1022,9 +1030,6 @@
 }
 
 
-.tabs { display:flex; gap:10px; margin:22px 0 24px; flex-wrap:wrap; }
-.tabs a { padding:11px 20px; border-radius:8px; background:#fff; color:#334155; text-decoration:none; font-size:14px; }
-.tabs a.active { background:#2563eb; color:#fff; }
 .compact-pagination { display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
 .compact-pagination .page-link { display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:34px; padding:0 10px; border:1px solid #dbe3ef; border-radius:8px; background:#fff; color:#334155; font-size:13px; font-weight:700; text-decoration:none; line-height:1; }
 .compact-pagination .page-link:hover { background:#f1f5f9; }

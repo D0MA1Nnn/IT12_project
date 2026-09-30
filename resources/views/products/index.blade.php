@@ -4,17 +4,6 @@
 
 @section('content')
 
-<div class="top">
-    <div>
-        <h1>Products & Inventory</h1>
-        <div class="muted">
-            Maintain construction materials and monitor available quantities
-        </div>
-    </div>
-
-    <div class="who">Owner</div>
-</div>
-
 <div class="tabs">
     <a class="active" href="{{ route('products.index') }}">Products</a>
     <a href="{{ route('categories.index') }}">Categories</a>
@@ -103,7 +92,7 @@
                 <tr>
                     <th>Product</th>
                     <th>Category</th>
-                    <th>Base Unit</th>
+                    <th>Units</th>
                     <th>Base Price</th>
                     <th>Status</th>
                     <th>Action</th>
@@ -119,6 +108,19 @@
                         $product->productUnits
                             ->firstWhere('is_base_unit', true)
                         ?? $product->productUnits->first();
+
+                    $unitOptions = $product->productUnits
+                        ->sortByDesc('is_base_unit')
+                        ->map(fn ($unitOption) => [
+                            'unit_id' => $unitOption->unit_id,
+                            'name' => $unitOption->unit?->unit_name ?? '—',
+                            'selling_price' => (float) $unitOption->selling_price,
+                            'purchase_cost' => (float) $unitOption->purchase_cost,
+                            'conversion_factor' => (float) $unitOption->conversion_factor,
+                            'is_base_unit' => (bool) $unitOption->is_base_unit,
+                            'is_active' => (bool) $unitOption->is_active,
+                        ])
+                        ->values();
 
                     $reorder =
                         (float)($product->inventory?->reorder_level ?? 0);
@@ -137,7 +139,18 @@
                     </td>
 
                     <td>
-                        {{ $baseUnit?->unit?->unit_name ?? '—' }}
+                        <div class="unit-list">
+                            @forelse($unitOptions as $unitOption)
+                                <span class="unit-chip">
+                                    {{ $unitOption['name'] }}
+                                    @if($unitOptions->count() > 1 && $unitOption['is_base_unit'])
+                                        <small>(Base)</small>
+                                    @endif
+                                </span>
+                            @empty
+                                —
+                            @endforelse
+                        </div>
                     </td>
 
                     <td>
@@ -162,15 +175,32 @@
 
                             <button
                                 type="button"
+                                class="btn light small product-view-btn"
+                                data-name="{{ $product->product_name }}"
+                                data-category="{{ $product->category?->category_name ?? '—' }}"
+                                data-supplier="{{ $product->suppliers->first()?->supplier_name ?? '—' }}"
+                                data-status="{{ $product->is_active ? 'Active' : 'Archived' }}"
+                                data-stock="{{ number_format((float)($product->inventory?->quantity_on_hand ?? 0), 3, '.', '') }}"
+                                data-reorder="{{ number_format($reorder, 0, '.', '') }}"
+                                data-description="{{ $product->description ?? '—' }}"
+                                data-units='@json($unitOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)'
+                            >
+                                View
+                            </button>
+
+                            <button
+                                type="button"
                                 class="btn light small edit-product-btn"
                                 data-update-url="{{ route('products.update', $product) }}"
                                 data-name="{{ $product->product_name }}"
                                 data-category="{{ $product->category_id }}"
                                 data-unit="{{ $baseUnit?->unit_id ?? '' }}"
+                                data-supplier="{{ $product->suppliers->first()?->supplier_id ?? '' }}"
                                 data-price="{{ $baseUnit?->selling_price ?? 0 }}"
                                 data-cost="{{ $baseUnit?->purchase_cost ?? 0 }}"
                                 data-reorder="{{ number_format($reorder, 0, '.', '') }}"
                                 data-description="{{ $product->description ?? '' }}"
+                                data-units='@json($unitOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)'
                             >
                                 Edit
                             </button>
@@ -180,8 +210,10 @@
                                 class="btn primary small units-btn"
                                 data-product-name="{{ $product->product_name }}"
                                 data-store-url="{{ route('products.units.store', $product) }}"
+                                data-base-unit-name="{{ $baseUnit?->unit?->unit_name ?? 'base unit' }}"
+                                data-units='@json($unitOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)'
                             >
-                                Units
+                                Unit
                             </button>
 
                             <form
@@ -293,6 +325,89 @@ ARCHIVE / RESTORE CONFIRMATION MODAL
 
 
 {{-- =========================================================
+PRODUCT VIEW MODAL
+========================================================= --}}
+
+<div class="modal-overlay"
+     id="productViewModal">
+
+    <div class="system-modal">
+
+        <div class="modal-header">
+
+            <div>
+                <h2 id="productViewTitle">
+                    Product Details
+                </h2>
+
+                <p>
+                    View product information and available units.
+                </p>
+            </div>
+
+            <button
+                type="button"
+                class="modal-close"
+                id="closeProductViewModal"
+            >
+                &times;
+            </button>
+
+        </div>
+
+        <div class="product-view-grid">
+            <div>
+                <span>Category</span>
+                <strong id="productViewCategory">—</strong>
+            </div>
+
+            <div>
+                <span>Supplier</span>
+                <strong id="productViewSupplier">—</strong>
+            </div>
+
+            <div>
+                <span>Status</span>
+                <strong id="productViewStatus">—</strong>
+            </div>
+
+            <div>
+                <span>Stock</span>
+                <strong id="productViewStock">—</strong>
+            </div>
+
+            <div>
+                <span>Reorder Level</span>
+                <strong id="productViewReorder">—</strong>
+            </div>
+        </div>
+
+        <div class="product-view-section">
+            <span>Description</span>
+            <p id="productViewDescription">—</p>
+        </div>
+
+        <div class="product-view-section">
+            <span>Units</span>
+            <div class="product-unit-view-list" id="productViewUnits"></div>
+        </div>
+
+        <div class="modal-actions">
+            <button
+                type="button"
+                class="btn light"
+                id="cancelProductViewModal"
+            >
+                Close
+            </button>
+        </div>
+
+    </div>
+
+</div>
+
+
+{{-- =========================================================
 ADD / EDIT PRODUCT MODAL
 ========================================================= --}}
 
@@ -371,6 +486,27 @@ ADD / EDIT PRODUCT MODAL
 
 
                 <div class="field">
+                    <label>Supplier</label>
+
+                    <select
+                        name="supplier_id"
+                        id="productSupplier"
+                        required
+                    >
+                        <option value="">
+                            Select supplier
+                        </option>
+
+                        @foreach($suppliers as $supplier)
+                            <option value="{{ $supplier->supplier_id }}">
+                                {{ $supplier->supplier_name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+
+                <div class="field">
                     <label>Base Unit</label>
 
                     <select
@@ -383,7 +519,11 @@ ADD / EDIT PRODUCT MODAL
                         </option>
 
                         @foreach($units as $unit)
-                            <option value="{{ $unit->unit_id }}">
+                            <option
+                                value="{{ $unit->unit_id }}"
+                                data-name="{{ $unit->unit_name }}"
+                                data-symbol="{{ $unit->unit_symbol }}"
+                            >
                                 {{ $unit->unit_name }}
                                 ({{ $unit->unit_symbol }})
                             </option>
@@ -478,7 +618,7 @@ ADD / EDIT PRODUCT MODAL
 
 
 {{-- =========================================================
-PRODUCT UNITS MODAL
+PRODUCT UNIT MANAGEMENT MODAL
 ========================================================= --}}
 
 <div class="modal-overlay"
@@ -494,7 +634,7 @@ PRODUCT UNITS MODAL
                 </h2>
 
                 <p>
-                    Add an alternative purchasing or selling unit
+                    View current units and add another unit option.
                 </p>
             </div>
 
@@ -509,18 +649,13 @@ PRODUCT UNITS MODAL
         </div>
 
 
-        <div class="info-box">
-            If the base unit is Piece and one Bundle contains
-            10 Pieces, enter <strong>10</strong> as the conversion factor.
-        </div>
-
+        <div class="product-unit-view-list" id="productUnitViewList"></div>
 
         <form
             method="POST"
             id="unitsForm"
         >
             @csrf
-
 
             <div class="modal-grid">
 
@@ -529,6 +664,7 @@ PRODUCT UNITS MODAL
 
                     <select
                         name="unit_id"
+                        id="unitOptionSelect"
                         required
                     >
                         <option value="">
@@ -544,21 +680,48 @@ PRODUCT UNITS MODAL
                     </select>
                 </div>
 
-
                 <div class="field">
-                    <label>Conversion Factor</label>
+                    <label>Easy Conversion</label>
 
                     <input
-                        class="input"
-                        type="number"
+                        type="hidden"
                         name="conversion_factor"
-                        min="0.001"
-                        step="0.001"
+                        id="unitConversionFactor"
                         value="1"
-                        required
                     >
-                </div>
 
+                    <div class="conversion-builder">
+                        <input
+                            class="input"
+                            type="number"
+                            id="conversionSelectedQty"
+                            min="0.001"
+                            step="0.001"
+                            value="1"
+                            required
+                        >
+
+                        <span id="conversionSelectedUnitName">selected unit</span>
+
+                        <strong>=</strong>
+
+                        <input
+                            class="input"
+                            type="number"
+                            id="conversionBaseQty"
+                            min="0.001"
+                            step="0.001"
+                            value="1"
+                            required
+                        >
+
+                        <span id="conversionBaseUnitName">base unit</span>
+                    </div>
+
+                    <small class="conversion-preview" id="conversionPreview">
+                        1 selected unit = 1 base unit
+                    </small>
+                </div>
 
                 <div class="field">
                     <label>Selling Price</label>
@@ -572,7 +735,6 @@ PRODUCT UNITS MODAL
                         required
                     >
                 </div>
-
 
                 <div class="field">
                     <label>Purchase Cost</label>
@@ -588,7 +750,6 @@ PRODUCT UNITS MODAL
                 </div>
 
             </div>
-
 
             <div class="modal-actions">
 
@@ -618,6 +779,24 @@ PRODUCT UNITS MODAL
 
 
 <style>
+
+html,
+body {
+    overflow: hidden;
+}
+
+.main {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.tabs,
+.product-toolbar {
+    flex: 0 0 auto;
+}
 
 .product-toolbar {
     display: flex;
@@ -683,6 +862,10 @@ PRODUCT UNITS MODAL
 
 
 .product-card {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
     background: #fff;
     border-radius: 12px;
     overflow: hidden;
@@ -690,16 +873,26 @@ PRODUCT UNITS MODAL
 }
 
 .table-responsive {
-    overflow-x: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
 }
 
 .product-table {
     width: 100%;
 }
 
+.product-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
 .product-table td {
     vertical-align: middle;
 }
+
+.unit-list{display:flex;flex-wrap:wrap;gap:4px 10px;color:#0f172a}.unit-chip{display:inline;color:#0f172a;font-size:12px;font-weight:700}.unit-chip:not(:last-child)::after{content:","}.unit-chip small{color:#0f172a;font-size:11px;font-weight:700;text-transform:none}
 
 .actions {
     display: flex;
@@ -756,6 +949,7 @@ PRODUCT UNITS MODAL
 }
 
 .pagination-wrapper {
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -993,6 +1187,117 @@ PRODUCT UNITS MODAL
     line-height: 1.5;
 }
 
+.product-unit-view-list {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.product-unit-view-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 14px;
+    border: 1px solid #e5ecf5;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 12px;
+}
+
+.product-unit-view-row strong {
+    font-size: 13px;
+}
+
+.product-unit-view-row span {
+    color: #0f172a;
+}
+
+.product-unit-view-label {
+    display: block;
+    margin-bottom: 3px;
+    color: #64748b !important;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.product-view-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.product-view-grid > div,
+.product-view-section {
+    padding: 12px 14px;
+    border: 1px solid #e5ecf5;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+
+.product-view-grid span,
+.product-view-section > span {
+    display: block;
+    margin-bottom: 4px;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.product-view-grid strong {
+    color: #0f172a;
+    font-size: 13px;
+}
+
+.product-view-section {
+    margin-bottom: 14px;
+}
+
+.product-view-section p {
+    margin: 0;
+    color: #0f172a;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.conversion-builder {
+    display: grid;
+    grid-template-columns: 90px 1fr auto 90px 1fr;
+    gap: 8px;
+    align-items: center;
+}
+
+.conversion-builder .input {
+    text-align: center;
+}
+
+.conversion-builder span,
+.conversion-builder strong {
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.conversion-preview {
+    display: block;
+    margin-top: 8px;
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.product-unit-view-empty {
+    padding: 12px;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 12px;
+}
+
 .modal-actions {
     display: flex;
     justify-content: flex-end;
@@ -1071,6 +1376,43 @@ document.addEventListener('DOMContentLoaded', function () {
     const saveProductButton =
         document.getElementById('saveProductButton');
 
+    const productUnitSelect =
+        document.getElementById('productUnit');
+
+    const productPriceInput =
+        document.getElementById('productPrice');
+
+    const productCostInput =
+        document.getElementById('productCost');
+
+    let editingProductUnits = [];
+
+    function resetProductUnitChoices() {
+        editingProductUnits = [];
+
+        Array.from(productUnitSelect.options).forEach(function (option) {
+            option.disabled = false;
+            option.title = '';
+        });
+    }
+
+    function syncProductBaseUnitPrices() {
+        const selectedUnit =
+            editingProductUnits.find(function (unit) {
+                return String(unit.unit_id) === String(productUnitSelect.value);
+            });
+
+        if (! selectedUnit) {
+            return;
+        }
+
+        productPriceInput.value =
+            Number(selectedUnit.selling_price || 0).toFixed(2);
+
+        productCostInput.value =
+            Number(selectedUnit.purchase_cost || 0).toFixed(2);
+    }
+
 
     function showProductModal() {
         productModal.classList.add('show');
@@ -1090,6 +1432,7 @@ document.addEventListener('DOMContentLoaded', function () {
     openAddProduct.addEventListener('click', function () {
 
         productForm.reset();
+        resetProductUnitChoices();
 
         productForm.action =
             @json(route('products.store'));
@@ -1114,6 +1457,7 @@ document.addEventListener('DOMContentLoaded', function () {
             button.addEventListener('click', function () {
 
                 productForm.reset();
+                resetProductUnitChoices();
 
                 productForm.action =
                     button.dataset.updateUrl;
@@ -1135,18 +1479,19 @@ document.addEventListener('DOMContentLoaded', function () {
                     button.dataset.category || '';
 
                 document.getElementById(
+                    'productSupplier'
+                ).value =
+                    button.dataset.supplier || '';
+
+                document.getElementById(
                     'productUnit'
                 ).value =
                     button.dataset.unit || '';
 
-                document.getElementById(
-                    'productPrice'
-                ).value =
+                productPriceInput.value =
                     button.dataset.price || 0;
 
-                document.getElementById(
-                    'productCost'
-                ).value =
+                productCostInput.value =
                     button.dataset.cost || 0;
 
                 document.getElementById(
@@ -1159,10 +1504,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 ).value =
                     button.dataset.description || '';
 
+                editingProductUnits =
+                    JSON.parse(button.dataset.units || '[]');
+
                 showProductModal();
             });
 
         });
+
+    productUnitSelect.addEventListener(
+        'change',
+        syncProductBaseUnitPrices
+    );
 
 
     closeProductModal.addEventListener(
@@ -1201,6 +1554,77 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /*
     ============================================================
+    PRODUCT VIEW MODAL
+    ============================================================
+    */
+
+    const productViewModal =
+        document.getElementById('productViewModal');
+
+    const closeProductViewModal =
+        document.getElementById('closeProductViewModal');
+
+    const cancelProductViewModal =
+        document.getElementById('cancelProductViewModal');
+
+    const productViewUnits =
+        document.getElementById('productViewUnits');
+
+    function showProductViewModal() {
+        productViewModal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function hideProductViewModal() {
+        productViewModal.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    document
+        .querySelectorAll('.product-view-btn')
+        .forEach(function (button) {
+            button.addEventListener('click', function () {
+                document.getElementById('productViewTitle').textContent =
+                    button.dataset.name || 'Product Details';
+
+                document.getElementById('productViewCategory').textContent =
+                    button.dataset.category || '—';
+
+                document.getElementById('productViewSupplier').textContent =
+                    button.dataset.supplier || '—';
+
+                document.getElementById('productViewStatus').textContent =
+                    button.dataset.status || '—';
+
+                document.getElementById('productViewStock').textContent =
+                    button.dataset.stock || '0';
+
+                document.getElementById('productViewReorder').textContent =
+                    button.dataset.reorder || '0';
+
+                document.getElementById('productViewDescription').textContent =
+                    button.dataset.description || '—';
+
+                renderProductUnits(
+                    JSON.parse(button.dataset.units || '[]'),
+                    productViewUnits
+                );
+
+                showProductViewModal();
+            });
+        });
+
+    closeProductViewModal.addEventListener('click', hideProductViewModal);
+    cancelProductViewModal.addEventListener('click', hideProductViewModal);
+    productViewModal.addEventListener('click', function (event) {
+        if (event.target === productViewModal) {
+            hideProductViewModal();
+        }
+    });
+
+
+    /*
+    ============================================================
     UNITS MODAL
     ============================================================
     */
@@ -1222,6 +1646,166 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const saveUnitButton =
         document.getElementById('saveUnitButton');
+
+    const productUnitViewList =
+        document.getElementById('productUnitViewList');
+
+    const unitOptionSelect =
+        document.getElementById('unitOptionSelect');
+
+    const conversionSelectedQty =
+        document.getElementById('conversionSelectedQty');
+
+    const conversionBaseQty =
+        document.getElementById('conversionBaseQty');
+
+    const unitConversionFactor =
+        document.getElementById('unitConversionFactor');
+
+    const conversionSelectedUnitName =
+        document.getElementById('conversionSelectedUnitName');
+
+    const conversionBaseUnitName =
+        document.getElementById('conversionBaseUnitName');
+
+    const conversionPreview =
+        document.getElementById('conversionPreview');
+
+    let currentBaseUnitName =
+        'base unit';
+
+    const originalUnitOptions =
+        Array.from(unitOptionSelect.options).map(option => ({
+            value: option.value,
+            label: option.textContent,
+            name: option.dataset.name || option.textContent,
+            symbol: option.dataset.symbol || '',
+            isPlaceholder: option.value === ''
+        }));
+
+    function peso(value) {
+        return '₱' + Number(value || 0).toLocaleString('en-PH', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function renderProductUnits(units, target = productUnitViewList) {
+        if (!units.length) {
+            target.innerHTML =
+                '<div class="product-unit-view-empty">No units added yet.</div>';
+
+            return;
+        }
+
+        target.innerHTML = units.map(function (unit) {
+            const baseLabel = unit.is_base_unit ? ' <span class="unit-chip">Base</span>' : '';
+            const statusLabel = unit.is_active ? 'Active' : 'Archived';
+
+            return `
+                <div class="product-unit-view-row">
+                    <div>
+                        <span class="product-unit-view-label">Unit</span>
+                        <strong>${escapeHtml(unit.name)}${baseLabel}</strong>
+                    </div>
+                    <div>
+                        <span class="product-unit-view-label">Selling Price</span>
+                        <span>${peso(unit.selling_price)}</span>
+                    </div>
+                    <div>
+                        <span class="product-unit-view-label">Purchase Cost</span>
+                        <span>${peso(unit.purchase_cost)}</span>
+                    </div>
+                    <div>
+                        <span class="product-unit-view-label">Conversion / Status</span>
+                        <span>${unit.conversion_factor}x • ${statusLabel}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function selectedUnitName() {
+        const selectedOption =
+            unitOptionSelect.options[unitOptionSelect.selectedIndex];
+
+        return (selectedOption?.dataset.name || selectedOption?.textContent || 'selected unit')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function updateConversionFactor() {
+        if (!unitOptionSelect.value) {
+            unitConversionFactor.value = '1';
+            conversionSelectedUnitName.textContent = 'selected unit';
+            conversionBaseUnitName.textContent = currentBaseUnitName;
+            conversionPreview.textContent = 'Choose a unit first.';
+
+            return;
+        }
+
+        const selectedQty =
+            Math.max(0.001, Number(conversionSelectedQty.value) || 1);
+
+        const baseQty =
+            Math.max(0.001, Number(conversionBaseQty.value) || 1);
+
+        const factor =
+            baseQty / selectedQty;
+
+        conversionSelectedQty.value =
+            selectedQty;
+
+        conversionBaseQty.value =
+            baseQty;
+
+        unitConversionFactor.value =
+            factor.toFixed(6);
+
+        conversionSelectedUnitName.textContent =
+            selectedUnitName();
+
+        conversionBaseUnitName.textContent =
+            currentBaseUnitName;
+
+        conversionPreview.textContent =
+            `System will save: 1 ${selectedUnitName()} = ${Number(factor.toFixed(6))} ${currentBaseUnitName}`;
+    }
+
+    function refreshUnitDropdown(existingUnits) {
+        const usedUnitIds =
+            new Set(existingUnits.map(unit => String(unit.unit_id)));
+
+        const availableOptions =
+            originalUnitOptions.filter(option => (
+                option.isPlaceholder || !usedUnitIds.has(String(option.value))
+            ));
+
+        unitOptionSelect.innerHTML = availableOptions.map(option => (
+            `<option value="${escapeHtml(option.value)}" data-name="${escapeHtml(option.name)}" data-symbol="${escapeHtml(option.symbol)}">${escapeHtml(option.label.trim())}</option>`
+        )).join('');
+
+        const selectableOption =
+            Array.from(unitOptionSelect.options).find(option => option.value !== '');
+
+        if (selectableOption) {
+            unitOptionSelect.disabled = false;
+            unitOptionSelect.value = selectableOption.value;
+            saveUnitButton.disabled = false;
+        } else {
+            unitOptionSelect.disabled = true;
+            saveUnitButton.disabled = true;
+        }
+    }
 
 
     function showUnitsModal() {
@@ -1254,9 +1838,27 @@ document.addEventListener('DOMContentLoaded', function () {
                     unitsForm.action =
                         button.dataset.storeUrl;
 
+                    currentBaseUnitName =
+                        button.dataset.baseUnitName || 'base unit';
+
+                    const existingUnits =
+                        JSON.parse(button.dataset.units || '[]');
+
+                    conversionSelectedQty.value =
+                        1;
+
+                    conversionBaseQty.value =
+                        1;
+
                     unitsModalTitle.textContent =
                         button.dataset.productName +
                         ' — Units';
+
+                    renderProductUnits(existingUnits);
+
+                    refreshUnitDropdown(existingUnits);
+
+                    updateConversionFactor();
 
                     showUnitsModal();
                 }
@@ -1276,6 +1878,41 @@ document.addEventListener('DOMContentLoaded', function () {
     );
 
 
+    unitOptionSelect.addEventListener(
+        'change',
+        updateConversionFactor
+    );
+
+    conversionSelectedQty.addEventListener(
+        'input',
+        updateConversionFactor
+    );
+
+    conversionBaseQty.addEventListener(
+        'input',
+        updateConversionFactor
+    );
+
+    unitsForm.addEventListener(
+        'submit',
+        function (event) {
+
+            if (!unitOptionSelect.value) {
+                event.preventDefault();
+
+                return;
+            }
+
+            updateConversionFactor();
+
+            saveUnitButton.disabled = true;
+
+            saveUnitButton.textContent =
+                'Adding...';
+        }
+    );
+
+
     unitsModal.addEventListener(
         'click',
         function (event) {
@@ -1283,18 +1920,6 @@ document.addEventListener('DOMContentLoaded', function () {
             if (event.target === unitsModal) {
                 hideUnitsModal();
             }
-        }
-    );
-
-
-    unitsForm.addEventListener(
-        'submit',
-        function () {
-
-            saveUnitButton.disabled = true;
-
-            saveUnitButton.textContent =
-                'Adding...';
         }
     );
 
@@ -1372,6 +1997,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (productModal.classList.contains('show')) {
                 hideProductModal();
+            }
+
+            if (productViewModal.classList.contains('show')) {
+                hideProductViewModal();
             }
 
             if (unitsModal.classList.contains('show')) {

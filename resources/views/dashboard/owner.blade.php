@@ -9,13 +9,11 @@
 ========================================================= --}}
 <div class="top">
     <div>
-        <h1>Dashboard</h1>
+            <h1 class="legacy-dashboard-heading">Owner Dashboard</h1>
         <div class="muted">
-            Daily overview of inventory, purchasing and sales
+            {{ now()->format('l, M d, Y') }}
         </div>
     </div>
-
-    <div class="who">Owner</div>
 </div>
 
 
@@ -24,74 +22,9 @@
 ========================================================= --}}
 <div class="owner-summary-grid">
 
-    {{-- PRODUCTS --}}
-    <a href="{{ route('products.index') }}" class="owner-stat-card">
-        <div class="owner-stat-header">
-            <div class="owner-stat-icon blue">
-                P
-            </div>
-
-            <span>Active Products</span>
-        </div>
-
-        <div class="owner-stat-value">
-            {{ number_format($productCount) }}
-        </div>
-
-        <div class="owner-stat-footer">
-            Construction materials
-        </div>
-    </a>
-
-
-    {{-- LOW STOCK --}}
-    <a
-        href="{{ route('products.index', ['stock' => 'low']) }}"
-        class="owner-stat-card"
-    >
-        <div class="owner-stat-header">
-            <div class="owner-stat-icon red">
-                !
-            </div>
-
-            <span>Low Stock</span>
-        </div>
-
-        <div class="owner-stat-value {{ $lowStockCount > 0 ? 'text-danger' : '' }}">
-            {{ number_format($lowStockCount) }}
-        </div>
-
-        <div class="owner-stat-footer">
-            Items requiring attention
-        </div>
-    </a>
-
-
-    {{-- TODAY'S PURCHASES --}}
-    <a href="{{ route('purchases.index') }}" class="owner-stat-card">
-        <div class="owner-stat-header">
-            <div class="owner-stat-icon orange">
-                ↓
-            </div>
-
-            <span>Today's Purchases</span>
-        </div>
-
-        <div class="owner-stat-value">
-            ₱{{ number_format((float) $todayPurchaseAmount, 2) }}
-        </div>
-
-        <div class="owner-stat-footer">
-            {{ number_format($todayPurchaseCount) }}
-            {{ $todayPurchaseCount == 1 ? 'purchase' : 'purchases' }}
-            today
-        </div>
-    </a>
-
-
     {{-- TODAY'S SALES --}}
     <a
-        href="{{ route('sales.index') }}"
+        href="{{ route('sales.report') }}"
         class="owner-stat-card"
     >
         <div class="owner-stat-header">
@@ -113,6 +46,77 @@
         </div>
     </a>
 
+
+    {{-- TODAY'S PURCHASES --}}
+    <a
+        href="{{ route('purchases.index') }}"
+        class="owner-stat-card"
+    >
+        <div class="owner-stat-header">
+            <div class="owner-stat-icon orange">
+                ↓
+            </div>
+
+            <span>Today's Purchases</span>
+        </div>
+
+        <div class="owner-stat-value">
+            ₱{{ number_format((float) $todayPurchaseAmount, 2) }}
+        </div>
+
+        <div class="owner-stat-footer">
+            {{ number_format($todayPurchaseCount) }}
+            {{ $todayPurchaseCount == 1 ? 'record' : 'records' }}
+            today
+        </div>
+    </a>
+
+
+    {{-- LOW STOCK --}}
+    <a
+        href="{{ route('inventory.index', ['stock' => 'low_stock']) }}"
+        class="owner-stat-card"
+    >
+        <div class="owner-stat-header">
+            <div class="owner-stat-icon red">
+                !
+            </div>
+
+            <span>Low Stock</span>
+        </div>
+
+        <div class="owner-stat-value {{ $lowStockCount > 0 ? 'text-danger' : '' }}">
+            {{ number_format($lowStockCount) }}
+        </div>
+
+        <div class="owner-stat-footer">
+            Items requiring attention
+        </div>
+    </a>
+
+
+    {{-- PENDING DELIVERIES --}}
+    <a
+        href="{{ route('sales.index') }}"
+        class="owner-stat-card"
+    >
+        <div class="owner-stat-header">
+            <div class="owner-stat-icon orange">
+                D
+            </div>
+
+            <span>Pending Deliveries</span>
+        </div>
+
+        <div class="owner-stat-value {{ $pendingDeliveryCount > 0 ? 'text-warning' : '' }}">
+            {{ number_format($pendingDeliveryCount) }}
+        </div>
+
+        <div class="owner-stat-footer">
+            Orders waiting for delivery
+        </div>
+    </a>
+
 </div>
 
 
@@ -120,6 +124,16 @@
      SECONDARY SUMMARY
 ========================================================= --}}
 <div class="owner-secondary-grid">
+
+    <a href="{{ route('products.index') }}" class="owner-mini-card">
+        <div>
+            <span>Products</span>
+            <small>Active construction materials</small>
+        </div>
+
+        <strong>{{ number_format($productCount) }}</strong>
+    </a>
+
 
     <a href="{{ route('categories.index') }}" class="owner-mini-card">
         <div>
@@ -152,489 +166,140 @@
 
 </div>
 
-
 {{-- =========================================================
-     INVENTORY ATTENTION
+     OPERATION SNAPSHOT
 ========================================================= --}}
-<div class="owner-section">
+<div class="owner-dashboard-grid">
 
-    <div class="owner-section-header">
+    <div class="owner-section">
 
-        <div>
-            <h2>Inventory Attention</h2>
+        <div class="owner-section-header">
+            <div>
+                <h2>Needs Attention</h2>
 
-            <p>
-                Materials that have reached or fallen below their reorder level
-            </p>
-        </div>
-
-        <a
-            href="{{ route('products.index', ['stock' => 'low']) }}"
-            class="owner-section-link"
-        >
-            View Products →
-        </a>
-
-    </div>
-
-
-    <div class="owner-table-wrapper">
-
-        <table class="table owner-dashboard-table">
-
-            <thead>
-                <tr>
-                    <th>Product</th>
-                    <th>Available Qty</th>
-                    <th>Unit</th>
-                    <th>Reorder</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-
-            <tbody>
-
-                @forelse($lowStockItems as $inventory)
-
-                    @php
-                        $product = $inventory->product;
-
-                        $baseUnit = $product?->productUnits
-                            ?->firstWhere('is_base_unit', true)
-                            ?? $product?->productUnits?->first();
-
-                        $quantity = (float) $inventory->quantity_on_hand;
-                        $reorder = (float) $inventory->reorder_level;
-                    @endphp
-
-                    <tr>
-
-                        <td>
-                            <strong>
-                                {{ $product?->product_name ?? '—' }}
-                            </strong>
-                        </td>
-
-                        <td>
-                            {{ number_format($quantity, 0) }}
-                        </td>
-
-                        <td>
-                            {{ $baseUnit?->unit?->unit_name ?? '—' }}
-                        </td>
-
-                        <td>
-                            {{ number_format($reorder, 0) }}
-                        </td>
-
-                        <td>
-
-                            @if($quantity <= 0)
-
-                                <span class="owner-status out">
-                                    Out of Stock
-                                </span>
-
-                            @else
-
-                                <span class="owner-status low-stock">
-                                    Low Stock
-                                </span>
-
-                            @endif
-
-                        </td>
-
-                    </tr>
-
-                @empty
-
-                    <tr>
-                        <td colspan="5" class="owner-empty">
-                            No low-stock materials at this time.
-                        </td>
-                    </tr>
-
-                @endforelse
-
-            </tbody>
-
-        </table>
-
-    </div>
-
-</div>
-
-
-{{-- =========================================================
-     RECENT TRANSACTIONS
-========================================================= --}}
-<div class="owner-section">
-
-    <div class="owner-section-header">
-
-        <div>
-            <h2>Recent Transactions</h2>
-
-            <p>
-                Latest purchasing and sales activities
-            </p>
-        </div>
-
-        <a
-            href="{{ route('sales.index') }}"
-            class="owner-section-link"
-        >
-            View Sales →
-        </a>
-
-    </div>
-
-
-    <div class="owner-transaction-grid">
-
-        {{-- =================================================
-             RECENT PURCHASES
-        ================================================== --}}
-        <div class="owner-transaction-column">
-
-            <div class="owner-sub-header">
-
-                <div>
-                    <h3>Purchases</h3>
-                    <span>Recently received materials</span>
-                </div>
-
+                <p>
+                    Low-stock materials based on reorder levels
+                </p>
             </div>
 
-
-            @forelse($recentPurchases as $purchase)
-
-                <div class="owner-transaction-row">
-
-                    <div class="owner-transaction-info">
-
-                        <strong>
-                            PUR-{{ str_pad(
-                                $purchase->purchase_id,
-                                4,
-                                '0',
-                                STR_PAD_LEFT
-                            ) }}
-                        </strong>
-
-                        <span>
-                            @if($purchase->purchase_date)
-
-                                {{ \Carbon\Carbon::parse(
-                                    $purchase->purchase_date
-                                )->format('M d, Y g:i A') }}
-
-                            @else
-
-                                —
-
-                            @endif
-                        </span>
-
-                        @if($purchase->supplier)
-
-                            <small>
-                                {{ $purchase->supplier->supplier_name }}
-                            </small>
-
-                        @endif
-
-                    </div>
-
-
-                    <div class="owner-transaction-amount">
-                        ₱{{ number_format(
-                            (float) $purchase->total_amount,
-                            2
-                        ) }}
-                    </div>
-
-                </div>
-
-            @empty
-
-                <div class="owner-transaction-empty">
-                    No purchase transactions yet.
-                </div>
-
-            @endforelse
-
+            <a href="{{ route('inventory.index', ['stock' => 'low_stock']) }}" class="owner-section-link">
+                View inventory
+            </a>
         </div>
 
+        <div class="owner-table-wrapper owner-compact-list">
+            <table class="table owner-dashboard-table">
+                <thead>
+                    <tr>
+                        <th>Material</th>
+                        <th>Available</th>
+                    </tr>
+                </thead>
 
-        {{-- =================================================
-             RECENT SALES
-        ================================================== --}}
-        <div class="owner-transaction-column">
+                <tbody>
+                    @forelse($lowStockItems as $item)
+                        @php
+                            $baseUnit =
+                                $item->product?->productUnits
+                                    ->firstWhere('is_base_unit', true)
+                                ?? $item->product?->productUnits->first();
+                        @endphp
 
-            <div class="owner-sub-header">
+                        <tr>
+                            <td>
+                                <strong>{{ $item->product?->product_name ?? 'Unknown product' }}</strong>
+                                <small>{{ $baseUnit?->unit?->unit_name ?? 'unit' }}</small>
+                            </td>
+                            <td>
+                                <span class="{{ (float) $item->quantity_on_hand <= 0 ? 'owner-status out' : 'owner-status low-stock' }}">
+                                    {{ number_format((float) $item->quantity_on_hand, 0) }}
+                                </span>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="2" class="owner-empty">
+                                Inventory levels look good.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
 
-                <div>
+    </div>
+
+
+    <div class="owner-section">
+
+        <div class="owner-section-header">
+            <div>
+                <h2>Recent Movement</h2>
+
+                <p>
+                    Latest sales and purchases
+                </p>
+            </div>
+        </div>
+
+        <div class="owner-transaction-grid">
+
+            <div class="owner-transaction-column">
+                <div class="owner-sub-header">
                     <h3>Sales</h3>
-                    <span>Recently completed customer sales</span>
+                    <span>{{ number_format($saleCount) }} total records</span>
                 </div>
 
-            </div>
+                @forelse($recentSales as $sale)
+                    <div class="owner-transaction-row">
+                        <div class="owner-transaction-info">
+                            <strong>SALE-{{ str_pad($sale->sale_id, 4, '0', STR_PAD_LEFT) }}</strong>
+                            <span>{{ $sale->sale_date->format('M d, g:i A') }}</span>
+                            <small>{{ $sale->user?->username ?? 'Unknown user' }}</small>
+                        </div>
 
-
-            @forelse($recentSales as $sale)
-
-                <div class="owner-transaction-row">
-
-                    <div class="owner-transaction-info">
-
-                        <strong>
-                            SALE-{{ str_pad(
-                                $sale->sale_id,
-                                4,
-                                '0',
-                                STR_PAD_LEFT
-                            ) }}
-                        </strong>
-
-                        <span>
-
-                            @if($sale->sale_date)
-
-                                {{ \Carbon\Carbon::parse(
-                                    $sale->sale_date
-                                )->format('M d, Y g:i A') }}
-
-                            @else
-
-                                —
-
-                            @endif
-
-                        </span>
-
-
-                        @if($sale->user)
-
-                            <small>
-                                Recorded by {{ $sale->user->username }}
-                            </small>
-
-                        @endif
-
+                        <div class="owner-transaction-amount">
+                            ₱{{ number_format((float) $sale->total_amount, 2) }}
+                        </div>
                     </div>
-
-
-                    <div class="owner-transaction-amount">
-                        ₱{{ number_format(
-                            (float) $sale->total_amount,
-                            2
-                        ) }}
-                    </div>
-
-                </div>
-
-            @empty
-
-                <div class="owner-transaction-empty">
-                    No sales transactions yet.
-                </div>
-
-            @endforelse
-
-        </div>
-
-    </div>
-
-</div>
-
-
-{{-- =========================================================
-     QUICK ACTIONS
-========================================================= --}}
-<div class="owner-section">
-
-    <div class="owner-section-header">
-
-        <div>
-            <h2>Quick Actions</h2>
-
-            <p>
-                Frequently used management functions
-            </p>
-        </div>
-
-    </div>
-
-
-    <div class="owner-quick-grid">
-
-        <a
-            href="{{ route('products.create') }}"
-            class="owner-quick-action"
-        >
-            <div class="owner-quick-icon blue">
-                +
-            </div>
-
-            <div>
-                <strong>Add Product</strong>
-
-                <span>
-                    Register a construction material
-                </span>
-            </div>
-        </a>
-
-
-        <a
-            href="{{ route('purchases.create') }}"
-            class="owner-quick-action"
-        >
-            <div class="owner-quick-icon orange">
-                ↓
-            </div>
-
-            <div>
-                <strong>Record Purchase</strong>
-
-                <span>
-                    Record materials received from a supplier
-                </span>
-            </div>
-        </a>
-
-
-        <a
-            href="{{ route('inventory.index') }}"
-            class="owner-quick-action"
-        >
-            <div class="owner-quick-icon green">
-                I
-            </div>
-
-            <div>
-                <strong>View Inventory</strong>
-
-                <span>
-                    Monitor available material quantities
-                </span>
-            </div>
-        </a>
-
-
-        <a
-            href="{{ route('sales.index') }}"
-            class="owner-quick-action"
-        >
-            <div class="owner-quick-icon dark">
-                S
-            </div>
-
-            <div>
-                <strong>Sales Management</strong>
-
-                <span>
-                    Record sales and review daily sales records
-                </span>
-            </div>
-        </a>
-
-    </div>
-
-</div>
-
-
-{{-- =========================================================
-     RECENT SYSTEM ACTIVITY
-========================================================= --}}
-<div class="owner-section">
-
-    <div class="owner-section-header">
-
-        <div>
-            <h2>Recent System Activity</h2>
-
-            <p>
-                Latest recorded actions performed by system users
-            </p>
-        </div>
-
-        <a
-            href="{{ route('activity.index') }}"
-            class="owner-section-link"
-        >
-            View Activity Logs →
-        </a>
-
-    </div>
-
-
-    <div class="owner-table-wrapper">
-
-        <table class="table owner-dashboard-table">
-
-            <thead>
-                <tr>
-                    <th>Date / Time</th>
-                    <th>User</th>
-                    <th>Module</th>
-                    <th>Action</th>
-                    <th>Activity</th>
-                </tr>
-            </thead>
-
-            <tbody>
-
-                @forelse($recentActivities as $activity)
-
-                    <tr>
-
-                        <td>
-                            {{ $activity->created_at
-                                ?->format('m/d/Y g:i A') ?? '—'
-                            }}
-                        </td>
-
-                        <td>
-                            {{ $activity->user?->username ?? 'System' }}
-                        </td>
-
-                        <td>
-                            {{ $activity->module ?? '—' }}
-                        </td>
-
-                        <td>
-                            <span class="owner-action-badge">
-                                {{ $activity->action ?? '—' }}
-                            </span>
-                        </td>
-
-                        <td>
-                            {{ $activity->description }}
-                        </td>
-
-                    </tr>
-
                 @empty
-
-                    <tr>
-                        <td colspan="5" class="owner-empty">
-                            No system activity recorded yet.
-                        </td>
-                    </tr>
-
+                    <div class="owner-transaction-empty">
+                        No sales recorded yet.
+                    </div>
                 @endforelse
+            </div>
 
-            </tbody>
 
-        </table>
+            <div class="owner-transaction-column">
+                <div class="owner-sub-header">
+                    <h3>Purchases</h3>
+                    <span>{{ number_format($purchaseCount) }} total records</span>
+                </div>
+
+                @forelse($recentPurchases as $purchase)
+                    <div class="owner-transaction-row">
+                        <div class="owner-transaction-info">
+                            <strong>PUR-{{ str_pad($purchase->purchase_id, 4, '0', STR_PAD_LEFT) }}</strong>
+                            <span>{{ $purchase->purchase_date->format('M d, g:i A') }}</span>
+                            <small>{{ $purchase->supplier?->supplier_name ?? 'Unknown supplier' }}</small>
+                        </div>
+
+                        <div class="owner-transaction-amount">
+                            ₱{{ number_format((float) $purchase->total_amount, 2) }}
+                        </div>
+                    </div>
+                @empty
+                    <div class="owner-transaction-empty">
+                        No purchases recorded yet.
+                    </div>
+                @endforelse
+            </div>
+
+        </div>
 
     </div>
 
 </div>
-
 
 <style>
 
@@ -745,6 +410,11 @@
 }
 
 
+.text-warning {
+    color: #d97706;
+}
+
+
 /* =========================================================
    ICON COLORS
 ========================================================= */
@@ -788,10 +458,18 @@
 
 .owner-secondary-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 
     gap: 16px;
 
+    margin-bottom: 22px;
+}
+
+
+.owner-dashboard-grid {
+    display: grid;
+    grid-template-columns: minmax(380px, .9fr) minmax(0, 1.6fr);
+    gap: 16px;
     margin-bottom: 22px;
 }
 
@@ -868,6 +546,11 @@
 }
 
 
+.owner-dashboard-grid .owner-section {
+    margin-bottom: 0;
+}
+
+
 .owner-section-header {
     display: flex;
     align-items: center;
@@ -925,6 +608,12 @@
 }
 
 
+.owner-compact-list {
+    max-height: 355px;
+    overflow: auto;
+}
+
+
 .owner-dashboard-table {
     min-width: 650px;
 
@@ -940,6 +629,14 @@
 
 .owner-dashboard-table td strong {
     font-weight: 700;
+}
+
+
+.owner-dashboard-table td small {
+    display: block;
+    margin-top: 3px;
+    color: #7b879d;
+    font-size: 10px;
 }
 
 
@@ -987,6 +684,7 @@
 
     grid-template-columns:
         repeat(2, minmax(0, 1fr));
+    min-height: 355px;
 }
 
 
@@ -1165,10 +863,7 @@
     font-size: 10px;
 
     line-height: 1.4;
-}
-
-
-/* =========================================================
+}/* =========================================================
    ACTIVITY
 ========================================================= */
 
@@ -1197,6 +892,11 @@
     .owner-summary-grid {
         grid-template-columns:
             repeat(2, minmax(0, 1fr));
+    }
+
+
+    .owner-dashboard-grid {
+        grid-template-columns: 1fr;
     }
 
 
@@ -1243,6 +943,762 @@
 
 }
 
+    .owner-dashboard h1:first-of-type,
+    .owner-dashboard h1:first-of-type + .muted,
+    .owner-dashboard h1:first-of-type + p {
+        display: none !important;
+    }
+
+    .owner-dashboard .top:has(h1:first-of-type) {
+        display: none !important;
+    }
+
+    .owner-dashboard table {
+        min-width: 0 !important;
+    }
+
+    .owner-dashboard th,
+    .owner-dashboard td {
+        overflow-wrap: anywhere;
+    }
+
+    .owner-dashboard .table-wrap,
+    .owner-dashboard .table-scroll,
+    .owner-dashboard .owner-table-wrap,
+    .owner-dashboard .owner-table-scroll,
+    .owner-dashboard .owner-compact-list {
+        overflow-x: hidden !important;
+    }
+
+    .page-dashboard .main h1:first-of-type,
+    .page-dashboard .main h1:first-of-type + .muted,
+    .page-dashboard .main h1:first-of-type + p,
+    .page-dashboard .main h1:first-of-type + div {
+        display: none !important;
+    }
+
+    .page-dashboard .main > div:has(> h1:first-child),
+    .page-dashboard .main > div:has(> div > h1:first-child) {
+        display: none !important;
+    }
+
+    .page-dashboard .main {
+        overflow-x: hidden !important;
+    }
+
+    .page-dashboard,
+    .page-dashboard body {
+        overflow-x: hidden !important;
+    }
+
+    .page-dashboard .main > * {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .page-dashboard .main table {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+    .legacy-dashboard-heading,
+    .legacy-dashboard-heading + .muted,
+    .legacy-dashboard-heading + p,
+    .legacy-dashboard-heading + div {
+        display: none !important;
+    }
+
+    .main > div:has(.legacy-dashboard-heading),
+    .main > section:has(.legacy-dashboard-heading) {
+        display: none !important;
+    }
+
+    body.page-dashboard .main > .app-module-heading,
+    body.page-dashboard .main > .app-module-heading h1,
+    body.page-dashboard .main > .app-module-heading p {
+        display: block !important;
+        visibility: visible !important;
+    }
+
+    body.page-dashboard .main > .app-module-heading {
+        min-height: 48px !important;
+        margin-bottom: 18px !important;
+    }
+
+    body:has(.sidebar a.active[href*="dashboard"]) .main > .app-module-heading,
+    body:has(.sidebar a.active[href*="dashboard"]) .main > .app-module-heading h1,
+    body:has(.sidebar a.active[href*="dashboard"]) .main > .app-module-heading p {
+        display: block !important;
+        visibility: visible !important;
+    }
+
+    body:has(.sidebar a.active[href*="dashboard"]) .main > .app-module-heading {
+        min-height: 48px !important;
+        margin-bottom: 18px !important;
+    }
 </style>
+
+@php
+    $transactionPeriods = collect([
+        [
+            'label' => 'Today',
+            'start' => now()->copy()->startOfDay(),
+            'end' => now()->copy()->endOfDay(),
+        ],
+        [
+            'label' => 'This Week',
+            'start' => now()->copy()->startOfWeek(),
+            'end' => now()->copy()->endOfWeek(),
+        ],
+        [
+            'label' => 'This Month',
+            'start' => now()->copy()->startOfMonth(),
+            'end' => now()->copy()->endOfMonth(),
+        ],
+        [
+            'label' => 'This Year',
+            'start' => now()->copy()->startOfYear(),
+            'end' => now()->copy()->endOfYear(),
+        ],
+    ])->map(function (array $period): array {
+        $salesCount = \Illuminate\Support\Facades\DB::table('sales')
+            ->whereBetween('created_at', [$period['start'], $period['end']])
+            ->count();
+
+        $purchaseCount = \Illuminate\Support\Facades\DB::table('purchases')
+            ->whereBetween('created_at', [$period['start'], $period['end']])
+            ->count();
+
+        return [
+            'label' => $period['label'],
+            'sales' => $salesCount,
+            'purchases' => $purchaseCount,
+            'total' => $salesCount + $purchaseCount,
+        ];
+    })->values();
+
+    $topSellingProducts = collect();
+
+    if (
+        \Illuminate\Support\Facades\Schema::hasTable('sale_items')
+        && \Illuminate\Support\Facades\Schema::hasTable('products')
+        && \Illuminate\Support\Facades\Schema::hasColumn('sale_items', 'product_id')
+        && \Illuminate\Support\Facades\Schema::hasColumn('sale_items', 'quantity')
+        && \Illuminate\Support\Facades\Schema::hasColumn('products', 'name')
+    ) {
+        $topSellingProducts = \Illuminate\Support\Facades\DB::table('sale_items')
+            ->join('products', 'products.id', '=', 'sale_items.product_id')
+            ->select('products.name', \Illuminate\Support\Facades\DB::raw('SUM(sale_items.quantity) as total_sold'))
+            ->groupBy('products.id', 'products.name')
+            ->orderByDesc('total_sold')
+            ->limit(5)
+            ->get();
+    }
+@endphp
+
+@push('scripts')
+    <style>
+        .transaction-chart-card {
+            display: block !important;
+            width: 100% !important;
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
+            height: 100% !important;
+            padding: 18px !important;
+            overflow: hidden !important;
+            align-self: stretch !important;
+            justify-self: stretch !important;
+            align-content: start !important;
+            justify-content: start !important;
+        }
+
+        .transaction-chart-card > * {
+            max-width: 100%;
+        }
+
+        .transaction-chart-card .transaction-chart-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 14px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e8edf5;
+        }
+
+        .transaction-chart-card .transaction-chart-head h2 {
+            margin: 0;
+            color: #0f172a;
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .transaction-chart-card .transaction-chart-head p {
+            margin: 6px 0 0;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 400;
+        }
+
+        .transaction-chart-card .transaction-total {
+            color: #0f172a;
+            font-size: 24px;
+            font-weight: 900;
+            line-height: 1;
+            text-align: right;
+        }
+
+        .transaction-chart-card .transaction-total span {
+            display: block;
+            margin-top: 7px;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .transaction-chart-card .transaction-bars {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            align-items: end;
+            gap: 12px;
+            margin-top: 16px;
+            min-height: 160px;
+        }
+
+        .transaction-chart-card .transaction-row {
+            display: flex;
+            min-height: 160px;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 8px;
+            text-align: center;
+        }
+
+        .transaction-chart-card .transaction-label strong {
+            display: block;
+            color: #0f172a;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .transaction-chart-card .transaction-label span,
+        .transaction-chart-card .transaction-count {
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .transaction-chart-card .transaction-count {
+            text-align: center;
+        }
+
+        .transaction-chart-card .transaction-track {
+            display: flex;
+            width: 46px;
+            height: 86px;
+            align-items: flex-end;
+            overflow: hidden;
+            border-radius: 12px;
+            background: #eef4ff;
+            box-shadow: inset 0 0 0 1px #dbe5f5;
+            margin: 0 auto;
+        }
+
+        .transaction-chart-card .transaction-sales {
+            display: block;
+            width: 100%;
+            background: #2563eb;
+            min-width: 0;
+        }
+
+        .transaction-chart-card .transaction-procurement {
+            display: block;
+            width: 100%;
+            background: #f59e0b;
+            min-width: 0;
+        }
+
+        .top-products-card {
+            border: 1px solid #e5ebf3;
+            border-radius: 14px;
+            background: #fff;
+            padding: 18px;
+            min-height: 100%;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+        }
+
+        .top-products-card h2 {
+            margin: 0;
+            color: #0f172a;
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .top-products-card p {
+            margin: 6px 0 14px;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 400;
+        }
+
+        .top-products-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .top-products-empty {
+            display: grid;
+            min-height: 145px;
+            place-items: center;
+            border: 1px dashed #d9e2ef;
+            border-radius: 12px;
+            background: #f8fbff;
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 500;
+            text-align: center;
+        }
+
+
+        .top-products-item {
+            display: grid;
+            grid-template-columns: 32px minmax(0, 1fr) 90px;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .top-products-rank {
+            display: grid;
+            width: 32px;
+            height: 32px;
+            place-items: center;
+            border-radius: 10px;
+            background: #eff6ff;
+            color: #2563eb;
+            font-weight: 900;
+        }
+
+        .top-products-name {
+            min-width: 0;
+            color: #0f172a;
+            font-size: 13px;
+            font-weight: 900;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .top-products-sold {
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 800;
+            text-align: right;
+        }
+
+        .dashboard-overview-card {
+            grid-column: 1 / -1 !important;
+            width: 100% !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+        }
+
+        .transaction-overview-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
+            width: 100%;
+            align-items: stretch;
+        }
+
+        .page-dashboard .main {
+            padding-bottom: 28px;
+        }
+
+        .page-dashboard .main > .app-module-heading {
+            margin-bottom: 20px !important;
+        }
+
+        .page-dashboard .main .transaction-overview-grid {
+            margin-top: 10px;
+        }
+
+        .page-dashboard .main .transaction-chart-card {
+            border: 1px solid #e5ebf3;
+            border-radius: 14px;
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+        }
+
+        .page-dashboard .main .transaction-chart-card,
+        .page-dashboard .main .top-products-card {
+            min-height: 315px;
+        }
+
+        .dashboard-hidden-card {
+            display: none !important;
+        }
+
+        .transaction-chart-card .transaction-empty {
+            width: 100%;
+            background: #e5e7eb;
+        }
+
+        .transaction-chart-card .transaction-legend {
+            display: flex;
+            gap: 18px;
+            margin-top: 22px;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .transaction-chart-card .transaction-legend span {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .transaction-chart-card .transaction-legend i {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+        }
+
+        .transaction-chart-card .transaction-legend i.transaction-sales {
+            background: #2563eb;
+        }
+
+        .transaction-chart-card .transaction-legend i.transaction-procurement {
+            background: #f59e0b;
+        }
+
+        @media (max-width: 860px) {
+            .transaction-overview-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .transaction-chart-card .transaction-row {
+                min-height: 150px;
+            }
+
+            .transaction-chart-card .transaction-bars {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const transactionPeriods = @json($transactionPeriods);
+            const topSellingProducts = @json($topSellingProducts);
+
+            const findDashboardCard = (title) => {
+                const titleElement = Array.from(document.querySelectorAll('h1, h2, h3, h4, strong, b, div, span'))
+                    .find((element) => element.textContent.trim() === title);
+
+                if (!titleElement) {
+                    return null;
+                }
+
+                return titleElement.closest('.owner-card')
+                    || titleElement.closest('.card')
+                    || titleElement.closest('[class*="card"]')
+                    || titleElement.parentElement;
+            };
+
+            const getLowAndOutOfStockCounts = () => {
+                const materialHeader = Array.from(document.querySelectorAll('th'))
+                    .find((header) => header.textContent.trim() === 'Material');
+
+                if (!materialHeader) {
+                    return null;
+                }
+
+                const table = materialHeader.closest('table');
+
+                if (!table) {
+                    return null;
+                }
+
+                const rows = Array.from(table.querySelectorAll('tbody tr'));
+                let lowStockCount = 0;
+                let outOfStockCount = 0;
+
+                rows.forEach((row) => {
+                    const cells = Array.from(row.querySelectorAll('td'));
+                    const availableText = cells[cells.length - 1]?.textContent.trim() ?? '';
+                    const available = Number.parseFloat(availableText.replace(/[^0-9.-]/g, ''));
+
+                    if (Number.isNaN(available)) {
+                        return;
+                    }
+
+                    if (available <= 0) {
+                        outOfStockCount += 1;
+                    } else {
+                        lowStockCount += 1;
+                    }
+                });
+
+                return { lowStockCount, outOfStockCount };
+            };
+
+            const stockCounts = getLowAndOutOfStockCounts();
+
+            if (stockCounts) {
+                const lowStockCard = findDashboardCard('Low Stock');
+
+                if (lowStockCard) {
+                    const numberElement = Array.from(lowStockCard.querySelectorAll('*'))
+                        .find((element) => /^\d+$/.test(element.textContent.trim()));
+
+                    if (numberElement) {
+                        numberElement.textContent = stockCounts.lowStockCount;
+                    }
+
+                    if (!findDashboardCard('Out of Stock')) {
+                        const outOfStockCard = lowStockCard.cloneNode(true);
+                        const titleElement = Array.from(outOfStockCard.querySelectorAll('*'))
+                            .find((element) => element.textContent.trim() === 'Low Stock');
+                        const valueElement = Array.from(outOfStockCard.querySelectorAll('*'))
+                            .find((element) => /^\d+$/.test(element.textContent.trim()));
+                        const descriptionElement = Array.from(outOfStockCard.querySelectorAll('*'))
+                            .find((element) => element.textContent.includes('Items requiring attention'));
+
+                        if (titleElement) {
+                            titleElement.textContent = 'Out of Stock';
+                        }
+
+                        if (valueElement) {
+                            valueElement.textContent = stockCounts.outOfStockCount;
+                        }
+
+                        if (descriptionElement) {
+                            descriptionElement.textContent = 'Items with no available stock';
+                        }
+
+                        outOfStockCard.querySelectorAll('a').forEach((link) => {
+                            const href = link.getAttribute('href') || '';
+
+                            if (href.includes('inventory')) {
+                                const nextHref = href.includes('low_stock')
+                                    ? href.replace('low_stock', 'out_of_stock')
+                                    : `${href}${href.includes('?') ? '&' : '?'}status=out_of_stock`;
+
+                                link.setAttribute('href', nextHref);
+                            }
+                        });
+
+                        if (outOfStockCard.tagName === 'A') {
+                            const href = outOfStockCard.getAttribute('href') || '';
+
+                            if (href.includes('inventory')) {
+                                const nextHref = href.includes('low_stock')
+                                    ? href.replace('low_stock', 'out_of_stock')
+                                    : `${href}${href.includes('?') ? '&' : '?'}status=out_of_stock`;
+
+                                outOfStockCard.setAttribute('href', nextHref);
+                            }
+                        } else {
+                            outOfStockCard.style.cursor = 'pointer';
+                            outOfStockCard.addEventListener('click', () => {
+                                window.location.href = '/inventory?status=out_of_stock';
+                            });
+                        }
+
+                        lowStockCard.insertAdjacentElement('afterend', outOfStockCard);
+
+                        const summaryRow = lowStockCard.parentElement;
+
+                        if (summaryRow) {
+                            summaryRow.style.display = 'grid';
+                            summaryRow.style.gridTemplateColumns = 'repeat(5, minmax(0, 1fr))';
+                            summaryRow.style.gap = '18px';
+                        }
+                    }
+                }
+            }
+
+            const removeDashboardCardByTitle = (title) => {
+                const titleElement = Array.from(document.querySelectorAll('h1, h2, h3, h4, strong, b, div, span'))
+                    .find((element) => element.textContent.trim() === title);
+
+                if (!titleElement) {
+                    return;
+                }
+
+                let card = titleElement.closest('.owner-card')
+                    || titleElement.closest('.card')
+                    || titleElement.closest('[class*="card"]')
+                    || titleElement.parentElement;
+
+                while (
+                    card
+                    && card.parentElement
+                    && card.getBoundingClientRect().height < 95
+                    && card.parentElement.children.length <= 6
+                ) {
+                    card = card.parentElement;
+                }
+
+                if (card) {
+                    card.remove();
+                }
+            };
+
+            ['Products', 'Categories', 'Suppliers', 'Authorized Users'].forEach(removeDashboardCardByTitle);
+
+            const needsAttentionHeading = Array.from(document.querySelectorAll('h1, h2, h3'))
+                .find((heading) => heading.textContent.trim() === 'Needs Attention');
+
+            if (needsAttentionHeading) {
+                let needsAttentionCard = needsAttentionHeading.closest('.owner-card')
+                    || needsAttentionHeading.closest('.card')
+                    || needsAttentionHeading.closest('[class*="card"]')
+                    || needsAttentionHeading.closest('section')
+                    || needsAttentionHeading.parentElement?.parentElement;
+
+                if (needsAttentionCard) {
+                    while (
+                        needsAttentionCard.parentElement
+                        && needsAttentionCard.parentElement.textContent.includes('Needs Attention')
+                        && needsAttentionCard.getBoundingClientRect().height < 180
+                    ) {
+                        needsAttentionCard = needsAttentionCard.parentElement;
+                    }
+
+                    needsAttentionCard.remove();
+                }
+            }
+
+            const materialHeader = Array.from(document.querySelectorAll('th'))
+                .find((header) => header.textContent.trim() === 'Material');
+
+            if (materialHeader) {
+                let materialCard = materialHeader.closest('.owner-card')
+                    || materialHeader.closest('.card')
+                    || materialHeader.closest('[class*="card"]')
+                    || materialHeader.closest('section')
+                    || materialHeader.parentElement?.parentElement;
+
+                if (materialCard) {
+                    while (
+                        materialCard.parentElement
+                        && materialCard.parentElement.textContent.includes('Available')
+                        && materialCard.getBoundingClientRect().height < 220
+                    ) {
+                        materialCard = materialCard.parentElement;
+                    }
+
+                    materialCard.remove();
+                }
+            }
+
+            const recentHeading = Array.from(document.querySelectorAll('h1, h2, h3'))
+                .find((heading) => heading.textContent.trim() === 'Recent Movement');
+
+            if (!recentHeading) {
+                return;
+            }
+
+            let recentCard = recentHeading.closest('.owner-card')
+                || recentHeading.closest('.card')
+                || recentHeading.closest('[class*="card"]')
+                || recentHeading.closest('section')
+                || recentHeading.parentElement?.parentElement;
+
+            if (!recentCard) {
+                return;
+            }
+
+            while (
+                recentCard.parentElement
+                && recentCard.parentElement.textContent.includes('Recent Movement')
+                && !(
+                    recentCard.getBoundingClientRect().width >= 500
+                    && (
+                        recentCard.textContent.includes('Purchases')
+                        || recentCard.textContent.includes('SALE-')
+                        || recentCard.textContent.includes('PUR-')
+                    )
+                )
+            ) {
+                recentCard = recentCard.parentElement;
+            }
+
+            const renderOverview = (title, subtitle, key, barClass, legendLabel) => {
+                const maxTotal = Math.max(1, ...transactionPeriods.map((period) => period[key]));
+                const yearTotal = transactionPeriods.find((period) => period.label === 'This Year')?.[key] ?? 0;
+                const rows = transactionPeriods.map((period) => {
+                    const value = period[key];
+                    const filledHeight = value > 0 ? Math.max(8, (value / maxTotal) * 100) : 0;
+
+                    return `
+                        <div class="transaction-row">
+                            <div class="transaction-count">${value} total</div>
+                            <div class="transaction-track" aria-label="${period.label}: ${value} ${legendLabel.toLowerCase()}">
+                                <span class="${barClass}" style="height: ${filledHeight}%"></span>
+                            </div>
+                            <div class="transaction-label">
+                                <strong>${period.label}</strong>
+                                <span>${value} ${legendLabel.toLowerCase()}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="transaction-chart-card">
+                        <div class="transaction-chart-head">
+                            <div>
+                                <h2>${title}</h2>
+                                <p>${subtitle}</p>
+                            </div>
+                            <div class="transaction-total">
+                                ${yearTotal}
+                                <span>This year</span>
+                            </div>
+                        </div>
+                        <div class="transaction-bars">${rows}</div>
+                        <div class="transaction-legend">
+                            <span><i class="${barClass}"></i> ${legendLabel}</span>
+                        </div>
+                    </div>
+                `;
+            };
+
+            const renderTopSellingProducts = () => {
+                const rows = topSellingProducts.length > 0
+                    ? topSellingProducts.map((product, index) => `
+                        <div class="top-products-item">
+                            <div class="top-products-rank">${index + 1}</div>
+                            <div class="top-products-name" title="${product.name}">${product.name}</div>
+                            <div class="top-products-sold">${Number(product.total_sold).toLocaleString()} sold</div>
+                        </div>
+                    `).join('')
+                    : '<div class="top-products-empty">No product ranking yet.<br>Products will appear here after sales are recorded.</div>';
+
+                return `
+                    <div class="top-products-card">
+                        <h2>Top 5 Selling Products</h2>
+                        <p>Best-performing products based on quantity sold</p>
+                        <div class="top-products-list">${rows}</div>
+                    </div>
+                `;
+            };
+
+            recentCard.classList.remove('transaction-chart-card');
+            recentCard.classList.add('dashboard-overview-card');
+            recentCard.innerHTML = `
+                <div class="transaction-overview-grid">
+                    ${renderOverview('Transaction Overview', 'Sales by day, week, month, and year', 'sales', 'transaction-sales', 'Sales')}
+                    ${renderOverview('Procurement Overview', 'Purchases by day, week, month, and year', 'purchases', 'transaction-procurement', 'Purchases')}
+                    ${renderTopSellingProducts()}
+                </div>
+            `;
+        });
+    </script>
+@endpush
 
 @endsection

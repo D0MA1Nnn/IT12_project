@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Product;
-use App\Models\UnitOfMeasure;
 use App\Models\ProductUnit;
+use App\Models\UnitOfMeasure;
+use Illuminate\Database\Seeder;
 
 class ProductUnitSeeder extends Seeder
 {
@@ -19,6 +19,11 @@ class ProductUnitSeeder extends Seeder
         $meter = UnitOfMeasure::where(
             'unit_symbol',
             'm'
+        )->firstOrFail();
+
+        $kilogram = UnitOfMeasure::where(
+            'unit_symbol',
+            'kg'
         )->firstOrFail();
 
         $bag = UnitOfMeasure::where(
@@ -55,11 +60,21 @@ class ProductUnitSeeder extends Seeder
 
                 ProductUnit::create([
                     'product_id' => $product->product_id,
-                    'unit_id' => $bag->unit_id,
-                    'selling_price' => 280.00,
-                    'purchase_cost' => 240.00,
+                    'unit_id' => $kilogram->unit_id,
+                    'selling_price' => 8.00,
+                    'purchase_cost' => 7.00,
                     'conversion_factor' => 1,
                     'is_base_unit' => true,
+                    'is_active' => true,
+                ]);
+
+                ProductUnit::create([
+                    'product_id' => $product->product_id,
+                    'unit_id' => $bag->unit_id,
+                    'selling_price' => 280.00,
+                    'purchase_cost' => 245.00,
+                    'conversion_factor' => 40,
+                    'is_base_unit' => false,
                     'is_active' => true,
                 ]);
             } elseif ($product->product_name === 'Common Nail 2"') {
