@@ -8,12 +8,16 @@ use App\Models\Product;
 use App\Models\ProductUnit;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Services\DatabaseBackupService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class SaleController extends Controller
 {
+    public function __construct(private DatabaseBackupService $databaseBackupService) {}
+
     // =========================================================
     // CASHIERING / CREATE SALE
     // =========================================================
@@ -263,27 +267,36 @@ class SaleController extends Controller
                 'required_if:delivery_required,1',
                 'nullable',
                 'string',
-                'max:150',
+                'max:30',
             ],
 
             'customer_contact_number' => [
                 'required_if:delivery_required,1',
                 'nullable',
                 'string',
-                'max:50',
+                'regex:/^09\d{9}$/',
             ],
 
             'delivery_address' => [
                 'required_if:delivery_required,1',
                 'nullable',
                 'string',
-                'max:1000',
+                'max:60',
+            ],
+
+            'delivery_fee' => [
+                'required_if:delivery_required,1',
+                'nullable',
+                'numeric',
+                'min:0',
+                'regex:/^\d+(\.\d{1,2})?$/',
             ],
 
             'payment' => [
                 'required',
                 'numeric',
                 'min:0',
+                'regex:/^\d+(\.\d{1,2})?$/',
             ],
 
             'items' => [
@@ -302,10 +315,26 @@ class SaleController extends Controller
                 'numeric',
                 'gt:0',
             ],
+        ], [
+            'customer_contact_number.regex' => 'Customer contact number must start with 09 and contain exactly 11 numbers.',
+            'customer_name.max' => 'Customer name must not be longer than 30 characters.',
+            'delivery_address.max' => 'Address must not be longer than 60 characters.',
+            'delivery_fee.required_if' => 'Delivery fee is required when delivery is selected.',
+            'delivery_fee.numeric' => 'Delivery fee must be a number.',
+            'delivery_fee.regex' => 'Delivery fee can only have up to 2 decimal places.',
+            'payment.numeric' => 'Customer payment must be a number.',
+            'payment.regex' => 'Customer payment can only have up to 2 decimal places.',
+            'items.*.quantity.numeric' => 'Item quantity must be a number.',
+            'from.date_format' => 'Date must use the correct date format.',
+            'to.date_format' => 'Date must use the correct date format.',
         ]);
 
         $deliveryRequired =
             (bool) ($data['delivery_required'] ?? false);
+
+        $deliveryFee = $deliveryRequired
+            ? (float) ($data['delivery_fee'] ?? 0)
+            : 0.0;
 
         /*
         |--------------------------------------------------------------------------
@@ -325,7 +354,7 @@ class SaleController extends Controller
         */
 
         $sale = DB::transaction(
-            function () use ($data, $deliveryRequired) {
+            function () use ($data, $deliveryRequired, $deliveryFee) {
 
                 /*
                 |--------------------------------------------------------------------------
@@ -352,6 +381,8 @@ class SaleController extends Controller
                             : 'COMPLETED',
 
                     'delivery_required' => $deliveryRequired,
+
+                    'delivery_fee' => $deliveryFee,
 
                     'customer_name' => $deliveryRequired
                             ? trim((string) $data['customer_name'])
@@ -545,9 +576,12 @@ class SaleController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
+                $finalTotal =
+                    $total + $deliveryFee;
+
                 if (
                     (float) $data['payment'] <
-                    $total
+                    $finalTotal
                 ) {
                     throw ValidationException::withMessages([
                         'payment' => 'Customer payment is less than the total amount.',
@@ -607,7 +641,7 @@ class SaleController extends Controller
                 */
 
                 $sale->update([
-                    'total_amount' => $total,
+                    'total_amount' => $finalTotal,
                 ]);
 
                 return $sale;
@@ -638,6 +672,17 @@ class SaleController extends Controller
             'reference_id' => $sale->sale_id,
         ]);
 
+        $onlineBackupSaved = $sale->status === 'COMPLETED'
+            && $this->saveOnlineBackupAfterCompletedTransaction($sale->sale_id);
+
+        $successMessage = $deliveryRequired
+            ? 'Sale recorded. Delivery is pending. You can now process the next customer.'
+            : 'Sale completed successfully. You can now process the next customer.';
+
+        if ($onlineBackupSaved) {
+            $successMessage .= ' Online backup saved.';
+        }
+
         /*
         |--------------------------------------------------------------------------
         | Redirect back to Cashiering.
@@ -653,15 +698,7 @@ class SaleController extends Controller
             ->with('completed_sale_id', $sale->sale_id)
             ->with('receipt_payment', (float) $data['payment'])
             ->with('receipt_change', (float) $data['payment'] - (float) $sale->total_amount)
-            ->with(
-                'success',
-
-                $deliveryRequired
-
-                    ? 'Sale recorded. Delivery is pending. You can now process the next customer.'
-
-                    : 'Sale completed successfully. You can now process the next customer.'
-            );
+            ->with('success', $successMessage);
     }
 
     // =========================================================
@@ -704,10 +741,40 @@ class SaleController extends Controller
             'reference_id' => $sale->sale_id,
         ]);
 
+        $onlineBackupSaved = $this->saveOnlineBackupAfterCompletedTransaction($sale->sale_id);
+
         return back()->with(
             'success',
-            'Delivery marked as delivered successfully.'
+            $onlineBackupSaved
+                ? 'Delivery marked as delivered successfully. Online backup saved.'
+                : 'Delivery marked as delivered successfully.'
         );
+    }
+
+    private function saveOnlineBackupAfterCompletedTransaction(int $saleId): bool
+    {
+        if (! $this->databaseBackupService->onlineBackupConfigured()) {
+            return false;
+        }
+
+        try {
+            [, $fileName] = $this->databaseBackupService->saveLatestOnlineBackup();
+        } catch (RuntimeException $exception) {
+            report($exception);
+
+            return false;
+        }
+
+        ActivityLog::create([
+            'user_id' => auth()->id(),
+            'module' => 'BACKUP',
+            'action' => 'CREATE',
+            'description' => "Auto-saved online backup {$fileName} after completed sale #{$saleId}.",
+            'reference_type' => 'Sale',
+            'reference_id' => $saleId,
+        ]);
+
+        return true;
     }
 
     // =========================================================

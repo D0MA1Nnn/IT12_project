@@ -106,6 +106,11 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        font-size: 12px;
+    }
+
+    .supplier-toolbar > .btn {
+        font-size: 12px;
     }
 
     /* =========================================================
@@ -115,6 +120,23 @@
     .supplier-table-container {
         width: 100%;
         overflow-x: auto;
+    }
+
+    .supplier-table-container .table {
+        font-size: 12px;
+    }
+
+    .supplier-table-container .table th {
+        font-size: 11px;
+        font-weight: 800;
+    }
+
+    .supplier-table-container .table td {
+        font-size: 12px;
+    }
+
+    .supplier-table-container .btn.small {
+        font-size: 12px;
     }
 
     .supplier-name {
@@ -256,6 +278,97 @@
         resize: vertical;
     }
 
+    .supplier-product-checklist {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        max-height: 220px;
+        overflow-y: auto;
+        padding: 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: #f8fafc;
+    }
+
+    .supplier-product-option {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 9px;
+        border-radius: 8px;
+        background: #ffffff;
+        font-size: 12px;
+        font-weight: 800;
+    }
+
+    .supplier-product-option input {
+        margin-top: 2px;
+    }
+
+    .supplier-product-option small {
+        display: block;
+        margin-top: 2px;
+        color: #718096;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .supplier-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .supplier-detail-grid > div,
+    .supplier-detail-section {
+        padding: 12px;
+        border: 1px solid #edf0f5;
+        border-radius: 10px;
+        background: #f8fafc;
+    }
+
+    .supplier-detail-grid span {
+        display: block;
+        margin-bottom: 4px;
+        color: #718096;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .supplier-detail-section {
+        margin-top: 12px;
+    }
+
+    .supplier-detail-section > strong {
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    .supplier-detail-section p {
+        margin: 0;
+        color: #46536a;
+        line-height: 1.6;
+    }
+
+    .supplier-product-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 0;
+        border-top: 1px solid #e2e8f0;
+        font-weight: 800;
+    }
+
+    .supplier-product-line:first-of-type {
+        border-top: 0;
+    }
+
+    .supplier-product-line small {
+        color: #718096;
+        font-weight: 600;
+    }
+
     /* =========================================================
        PAGINATION
        ========================================================= */
@@ -280,22 +393,23 @@
     }
 
     .supplier-page-link {
-        min-width: 34px;
-        height: 34px;
+        min-width: 44px;
+        min-height: 40px;
 
         display: inline-flex;
         align-items: center;
         justify-content: center;
 
-        padding: 0 10px;
+        padding: 0 14px;
 
-        border: 1px solid #dfe5ee;
-        border-radius: 6px;
+        border: 0;
+        border-radius: 10px;
 
-        background: #fff;
-        color: #354052;
+        background: #eef2f8;
+        color: #0f172a;
 
         font-size: 12px;
+        font-weight: 800;
         text-decoration: none;
     }
 
@@ -305,9 +419,7 @@
 
     .supplier-page-link.active {
         background: #2468ee;
-        border-color: #2468ee;
         color: #fff;
-        font-weight: 700;
     }
 
     .supplier-page-link.disabled {
@@ -341,6 +453,11 @@
             grid-template-columns: 1fr;
         }
 
+        .supplier-product-checklist,
+        .supplier-detail-grid {
+            grid-template-columns: 1fr;
+        }
+
         .supplier-form-grid .full {
             grid-column: auto;
         }
@@ -349,24 +466,6 @@
 
 
 
-
-<div class="top">
-
-    <div>
-
-        <h1>Supplier Management</h1>
-
-        <div class="muted">
-            Maintain supplier records used in purchasing
-        </div>
-
-    </div>
-
-    <div class="who">
-        Owner
-    </div>
-
-</div>
 
 <div class="tabs">
     <a class="active" href="<?php echo e(route('suppliers.index')); ?>">Suppliers</a>
@@ -583,6 +682,15 @@
                             
                             <button
                                 type="button"
+                                class="btn light small supplier-view-button"
+                                data-id="<?php echo e($supplier->supplier_id); ?>"
+                            >
+                                View
+                            </button>
+
+                            
+                            <button
+                                type="button"
                                 class="btn light small edit-supplier-button"
 
                                 data-id="<?php echo e($supplier->supplier_id); ?>"
@@ -596,6 +704,8 @@
                                 data-email="<?php echo e($supplier->email ?? ''); ?>"
 
                                 data-address="<?php echo e($supplier->address ?? ''); ?>"
+
+                                data-product-ids='<?php echo json_encode($supplier->products->pluck('product_id')->values(), 15, 512) ?>'
                             >
                                 Edit
                             </button>
@@ -656,8 +766,96 @@
 
 
 
+<?php $__currentLoopData = $suppliers; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $supplier): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+    <div
+        id="viewSupplierModal<?php echo e($supplier->supplier_id); ?>"
+        class="supplier-modal-overlay"
+    >
+        <div class="supplier-modal">
+
+            <div class="supplier-modal-header">
+                <div>
+                    <h2><?php echo e($supplier->supplier_name); ?></h2>
+                    <div class="muted">
+                        Supplier details and available products.
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    class="supplier-modal-close"
+                    data-close-supplier-modal
+                >
+                    &times;
+                </button>
+            </div>
+
+            <div class="supplier-modal-body">
+                <div class="supplier-detail-grid">
+                    <div>
+                        <span>Contact Person</span>
+                        <strong><?php echo e($supplier->contact_person ?: '—'); ?></strong>
+                    </div>
+
+                    <div>
+                        <span>Phone</span>
+                        <strong><?php echo e($supplier->contact_number ?: '—'); ?></strong>
+                    </div>
+
+                    <div>
+                        <span>Email</span>
+                        <strong><?php echo e($supplier->email ?: '—'); ?></strong>
+                    </div>
+
+                    <div>
+                        <span>Status</span>
+                        <strong><?php echo e($supplier->is_active ? 'Active' : 'Archived'); ?></strong>
+                    </div>
+                </div>
+
+                <div class="supplier-detail-section">
+                    <strong>Description / Address</strong>
+                    <p><?php echo e($supplier->address ?: 'No description or address recorded.'); ?></p>
+                </div>
+
+                <div class="supplier-detail-section">
+                    <strong>Available Products</strong>
+
+                    <?php $__empty_1 = true; $__currentLoopData = $supplier->products; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $product): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                        <div class="supplier-product-line">
+                            <span><?php echo e($product->product_name); ?></span>
+                            <small><?php echo e($product->category?->category_name ?? 'No category'); ?></small>
+                        </div>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                        <p class="muted">No products assigned to this supplier yet.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="supplier-modal-footer">
+                <button
+                    type="button"
+                    class="btn light"
+                    data-close-supplier-modal
+                >
+                    Close
+                </button>
+            </div>
+
+        </div>
+    </div>
+<?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+
+
+
 
 <?php if(method_exists($suppliers, 'hasPages') && $suppliers->hasPages()): ?>
+    <?php
+        $currentPage = $suppliers->currentPage();
+        $lastPage = $suppliers->lastPage();
+        $startPage = max(1, min($currentPage - 1, $lastPage - 2));
+        $endPage = min($lastPage, $startPage + 2);
+    ?>
 
     <div class="supplier-pagination">
 
@@ -705,15 +903,11 @@
 
 
             
-            <?php for(
-                $page = 1;
-                $page <= $suppliers->lastPage();
-                $page++
-            ): ?>
+            <?php for($page = $startPage; $page <= $endPage; $page++): ?>
 
                 <a
                     href="<?php echo e($suppliers->url($page)); ?>"
-                    class="supplier-page-link <?php echo e($page === $suppliers->currentPage() ? 'active' : ''); ?>"
+                    class="supplier-page-link <?php echo e($page === $currentPage ? 'active' : ''); ?>"
                 >
                     <?php echo e($page); ?>
 
@@ -846,7 +1040,11 @@
                             class="input"
                             value="<?php echo e(old('contact_number')); ?>"
                             placeholder="Enter contact number"
-                            maxlength="50"
+                            maxlength="11"
+                            minlength="11"
+                            inputmode="numeric"
+                            pattern="\d{11}"
+                            title="Contact number must be exactly 11 digits."
                         >
 
                     </div>
@@ -884,6 +1082,35 @@
                             placeholder="Enter supplier address"
                             maxlength="1000"
                         ><?php echo e(old('address')); ?></textarea>
+
+                    </div>
+
+
+                    
+                    <div class="field full">
+
+                        <label>
+                            Products Offered
+                        </label>
+
+                        <div class="supplier-product-checklist">
+                            <?php $__currentLoopData = $products; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $product): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                <label class="supplier-product-option">
+                                    <input
+                                        type="checkbox"
+                                        name="product_ids[]"
+                                        value="<?php echo e($product->product_id); ?>"
+                                        <?php if(in_array($product->product_id, old('product_ids', []))): echo 'checked'; endif; ?>
+                                    >
+
+                                    <span>
+                                        <?php echo e($product->product_name); ?>
+
+                                        <small><?php echo e($product->category?->category_name ?? 'No category'); ?></small>
+                                    </span>
+                                </label>
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                        </div>
 
                     </div>
 
@@ -1017,7 +1244,11 @@
                             name="contact_number"
                             id="editSupplierContactNumber"
                             class="input"
-                            maxlength="50"
+                            maxlength="11"
+                            minlength="11"
+                            inputmode="numeric"
+                            pattern="\d{11}"
+                            title="Contact number must be exactly 11 digits."
                         >
 
                     </div>
@@ -1054,6 +1285,35 @@
                             class="input"
                             maxlength="1000"
                         ></textarea>
+
+                    </div>
+
+
+                    
+                    <div class="field full">
+
+                        <label>
+                            Products Offered
+                        </label>
+
+                        <div class="supplier-product-checklist">
+                            <?php $__currentLoopData = $products; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $product): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                <label class="supplier-product-option">
+                                    <input
+                                        type="checkbox"
+                                        name="product_ids[]"
+                                        value="<?php echo e($product->product_id); ?>"
+                                        class="edit-supplier-product-checkbox"
+                                    >
+
+                                    <span>
+                                        <?php echo e($product->product_name); ?>
+
+                                        <small><?php echo e($product->category?->category_name ?? 'No category'); ?></small>
+                                    </span>
+                                </label>
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                        </div>
 
                     </div>
 
@@ -1197,6 +1457,52 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('supplierStatusModal');
 
 
+    document
+        .querySelectorAll('.supplier-view-button')
+        .forEach(function (button) {
+
+            button.addEventListener(
+                'click',
+                function () {
+
+                    const modal =
+                        document.getElementById(
+                            'viewSupplierModal' + this.dataset.id
+                        );
+
+                    if (modal) {
+                        modal.classList.add('show');
+                        document.body.style.overflow = 'hidden';
+                    }
+
+                }
+            );
+
+        });
+
+
+    document
+        .querySelectorAll('[data-close-supplier-modal]')
+        .forEach(function (button) {
+
+            button.addEventListener(
+                'click',
+                function () {
+
+                    const modal =
+                        this.closest('.supplier-modal-overlay');
+
+                    if (modal) {
+                        modal.classList.remove('show');
+                        document.body.style.overflow = '';
+                    }
+
+                }
+            );
+
+        });
+
+
     /* =========================================================
        ADD MODAL
        ========================================================= */
@@ -1249,6 +1555,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     const address =
                         this.dataset.address || '';
 
+                    const productIds =
+                        JSON.parse(
+                            this.dataset.productIds || '[]'
+                        ).map(String);
+
 
                     document.getElementById(
                         'editSupplierName'
@@ -1273,6 +1584,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.getElementById(
                         'editSupplierAddress'
                     ).value = address;
+
+                    document
+                        .querySelectorAll(
+                            '.edit-supplier-product-checkbox'
+                        )
+                        .forEach(function (checkbox) {
+                            checkbox.checked =
+                                productIds.includes(
+                                    String(checkbox.value)
+                                );
+                        });
 
 
                     document.getElementById(
@@ -1487,4 +1809,5 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 <?php $__env->stopPush(); ?>
+
 <?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\Projects\IT12_project\resources\views/suppliers/index.blade.php ENDPATH**/ ?>

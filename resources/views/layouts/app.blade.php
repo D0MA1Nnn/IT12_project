@@ -176,6 +176,62 @@
             color: #64748b;
         }
 
+        .app-backup-status {
+            position: absolute;
+            top: 36px;
+            right: 265px;
+            z-index: 7;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border: 0 !important;
+            border-radius: 999px !important;
+            background: #ffffff !important;
+            box-shadow: 0 8px 22px rgba(15, 23, 42, .12) !important;
+            cursor: default;
+        }
+
+        .app-backup-status-dot {
+            width: 10px;
+            height: 10px;
+            display: block;
+            border-radius: 999px;
+        }
+
+        .app-backup-status.is-online .app-backup-status-dot {
+            background: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, .14);
+        }
+
+        .app-backup-status.is-offline .app-backup-status-dot {
+            background: #94a3b8;
+            box-shadow: 0 0 0 4px rgba(148, 163, 184, .16);
+        }
+
+        .app-backup-status-text {
+            position: absolute;
+            top: 25px;
+            right: 50%;
+            min-width: max-content;
+            padding: 7px 10px;
+            border-radius: 9px;
+            color: #ffffff;
+            background: #0f172a;
+            font-size: 12px;
+            font-weight: 800;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(50%) translateY(-4px);
+            transition: opacity .16s ease, transform .16s ease;
+        }
+
+        .app-backup-status:hover .app-backup-status-text {
+            opacity: 1;
+            transform: translateX(50%) translateY(0);
+        }
+
         .app-date-time-spacer {
             display: none;
         }
@@ -919,6 +975,11 @@
                 margin-bottom: 14px;
             }
 
+            .app-backup-status {
+                top: 36px;
+                right: 30px;
+            }
+
             .app-module-heading {
                 min-height: 0;
                 padding-right: 0;
@@ -971,7 +1032,7 @@
 
         .page-activity .main > :not(.app-date-time):not(.app-date-time-spacer):not(.app-module-heading),
         .page-users .main > :not(.app-date-time):not(.app-date-time-spacer):not(.app-module-heading),
-        .page-backup .main > :not(.app-date-time):not(.app-date-time-spacer):not(.app-module-heading) {
+        .page-backup .main > :not(.app-date-time):not(.app-date-time-spacer):not(.app-module-heading):not(.app-backup-status) {
             border-radius: 16px;
         }
 
@@ -1152,7 +1213,7 @@
             flex-direction: column;
         }
 
-        .page-backup .main > div:not(.app-date-time):not(.app-date-time-spacer):not(.app-module-heading) {
+        .page-backup .main > div:not(.app-date-time):not(.app-date-time-spacer):not(.app-module-heading):not(.app-backup-status) {
             border: 1px solid #e5ebf3;
             background: #fff;
             box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
@@ -1626,6 +1687,22 @@
                     <span class="app-time" id="appCurrentTime">{{ now()->format('g:i:s A') }}</span>
                     <span class="app-date" id="appCurrentDate">{{ now()->format('l, M d, Y') }}</span>
                 </div>
+
+                @php
+                    $globalOnlineBackupPath = rtrim((string) config('services.online_backup.path'), '\\/');
+                    $globalOnlineBackupReady = filled($globalOnlineBackupPath)
+                        && \Illuminate\Support\Facades\File::isDirectory($globalOnlineBackupPath);
+                @endphp
+
+                <div
+                    class="app-backup-status {{ $globalOnlineBackupReady ? 'is-online' : 'is-offline' }} no-print"
+                    data-backup-folder-ready="{{ $globalOnlineBackupReady ? 'true' : 'false' }}"
+                >
+                    <span class="app-backup-status-dot"></span>
+                    <span class="app-backup-status-text">
+                        {{ $globalOnlineBackupReady ? 'Online backup ready' : 'Offline backup only' }}
+                    </span>
+                </div>
                 <div class="app-date-time-spacer no-print" aria-hidden="true"></div>
             @endauth
 
@@ -1932,6 +2009,47 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('input[pattern="\\d{11}"], input[pattern="09\\d{9}"], input[data-digits-only], input[name*="contact_number"]').forEach((input) => {
+                input.addEventListener('input', () => {
+                    const maxLength = Number(input.getAttribute('maxlength')) || 11;
+                    input.value = input.value.replace(/\D/g, '').slice(0, maxLength);
+                });
+            });
+
+            document.querySelectorAll('input[step="0.01"], input[data-decimal-places="2"]').forEach((input) => {
+                input.addEventListener('input', () => {
+                    const originalValue = input.value;
+                    const originalPosition = input.selectionStart ?? originalValue.length;
+                    let value = originalValue.replace(/[^\d.]/g, '');
+                    const firstDotIndex = value.indexOf('.');
+
+                    if (firstDotIndex !== -1) {
+                        value = value.slice(0, firstDotIndex + 1)
+                            + value.slice(firstDotIndex + 1).replace(/\./g, '');
+
+                        const [whole, decimal = ''] = value.split('.');
+                        value = `${whole}.${decimal.slice(0, 2)}`;
+                    }
+
+                    if (value !== originalValue) {
+                        const removedBeforeCursor = originalValue
+                            .slice(0, originalPosition)
+                            .replace(/[\d.]/g, '')
+                            .length;
+                        const nextPosition = Math.max(0, originalPosition - removedBeforeCursor);
+
+                        input.value = value;
+
+                        if (input.type !== 'number') {
+                            input.setSelectionRange(
+                                Math.min(nextPosition, value.length),
+                                Math.min(nextPosition, value.length)
+                            );
+                        }
+                    }
+                });
+            });
+
             if (document.body.classList.contains('role-salesclerk')) {
                 const moduleHeading = document.querySelector('.app-module-heading');
                 const sidebarLogo = document.querySelector('.sidebar img');
@@ -1943,6 +2061,31 @@
                     logo.removeAttribute('height');
                     moduleHeading.prepend(logo);
                 }
+            }
+
+            const backupStatus = document.querySelector('.app-backup-status');
+
+            if (backupStatus) {
+                const backupStatusText = backupStatus.querySelector('.app-backup-status-text');
+                const backupFolderReady = backupStatus.dataset.backupFolderReady === 'true';
+
+                const updateBackupStatus = () => {
+                    const browserOnline = navigator.onLine;
+                    const isReady = browserOnline && backupFolderReady;
+
+                    backupStatus.classList.toggle('is-online', isReady);
+                    backupStatus.classList.toggle('is-offline', !isReady);
+
+                    if (backupStatusText) {
+                        backupStatusText.textContent = isReady
+                            ? 'Online backup ready'
+                            : 'Offline backup only';
+                    }
+                };
+
+                updateBackupStatus();
+                window.addEventListener('online', updateBackupStatus);
+                window.addEventListener('offline', updateBackupStatus);
             }
 
             const timeElement = document.getElementById('appCurrentTime');

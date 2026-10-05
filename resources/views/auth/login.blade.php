@@ -49,12 +49,14 @@
         .hero {
             position: relative;
             overflow: hidden;
-            background: #0d192d;
+            background:
+                radial-gradient(circle at 18% 16%, rgba(36, 104, 238, .16), transparent 32%),
+                linear-gradient(145deg, #0a1425 0%, #0d192d 52%, #111f36 100%);
             color: #fff;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            padding: 50px;
+            padding: 56px;
         }
 
         .hero::before {
@@ -82,17 +84,37 @@
         .hero-content {
             position: relative;
             z-index: 1;
+            max-width: 430px;
+        }
+
+        .hero-logo-wrap {
+            width: 156px;
+            height: 156px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hero-logo {
+            width: 156px;
+            height: 156px;
+            border-radius: 50%;
+            object-fit: cover;
+            display: block;
+            filter: drop-shadow(0 18px 34px rgba(0, 0, 0, .28));
         }
 
         .hero h1 {
-            font-size: 34px;
-            margin: 0 0 10px;
+            font-size: 38px;
+            margin: 0 0 12px;
             letter-spacing: -.7px;
         }
 
         .hero p {
             color: #72a7ff;
-            font-size: 16px;
+            font-size: 17px;
+            line-height: 1.5;
             margin: 0;
         }
 
@@ -103,6 +125,11 @@
             display: flex;
             align-items: center;
             gap: 7px;
+            width: fit-content;
+            padding: 10px 13px;
+            border: 1px solid rgba(255, 255, 255, .09);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .045);
         }
 
         /* =========================================================
@@ -120,9 +147,10 @@
             width: 390px;
             background: #fff;
             padding: 46px 48px;
-            border-radius: 14px;
+            border: 1px solid #e8edf5;
+            border-radius: 18px;
             box-shadow:
-                0 8px 30px rgba(15, 23, 42, .035);
+                0 18px 55px rgba(15, 23, 42, .07);
         }
 
         .card h2 {
@@ -402,10 +430,23 @@
             .hero {
                 min-height: 220px;
                 padding: 35px;
+                align-items: center;
+                text-align: center;
             }
 
             .hero-security {
                 display: none;
+            }
+
+            .hero-logo-wrap {
+                width: 118px;
+                height: 118px;
+                margin: 0 auto 18px;
+            }
+
+            .hero-logo {
+                width: 118px;
+                height: 118px;
             }
 
             .right {
@@ -451,6 +492,14 @@
     <section class="hero">
 
         <div class="hero-content">
+
+            <div class="hero-logo-wrap">
+                <img
+                    class="hero-logo"
+                    src="{{ asset('images/senador-coco-logo.png') }}"
+                    alt="Senador Coco Logo"
+                >
+            </div>
 
             <h1>SENADOR COCO</h1>
 

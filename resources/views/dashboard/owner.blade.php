@@ -20,7 +20,10 @@
 {{-- =========================================================
      MAIN SUMMARY CARDS
 ========================================================= --}}
-<div class="owner-summary-grid">
+<div
+    class="owner-summary-grid"
+    style="grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; max-width: none;"
+>
 
     {{-- TODAY'S SALES --}}
     <a
@@ -32,7 +35,7 @@
                 ₱
             </div>
 
-            <span>Today's Sales</span>
+            <span>Sales</span>
         </div>
 
         <div class="owner-stat-value">
@@ -45,32 +48,6 @@
             today
         </div>
     </a>
-
-
-    {{-- TODAY'S PURCHASES --}}
-    <a
-        href="{{ route('purchases.index') }}"
-        class="owner-stat-card"
-    >
-        <div class="owner-stat-header">
-            <div class="owner-stat-icon orange">
-                ↓
-            </div>
-
-            <span>Today's Purchases</span>
-        </div>
-
-        <div class="owner-stat-value">
-            ₱{{ number_format((float) $todayPurchaseAmount, 2) }}
-        </div>
-
-        <div class="owner-stat-footer">
-            {{ number_format($todayPurchaseCount) }}
-            {{ $todayPurchaseCount == 1 ? 'record' : 'records' }}
-            today
-        </div>
-    </a>
-
 
     {{-- LOW STOCK --}}
     <a
@@ -312,6 +289,14 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
     margin-bottom: 16px;
+    width: 100%;
+    max-width: none !important;
+}
+
+.page-dashboard .main > .owner-summary-grid {
+    width: calc(100vw - 278px) !important;
+    max-width: calc(100vw - 278px) !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
 }
 
 
@@ -468,7 +453,7 @@
 
 .owner-dashboard-grid {
     display: grid;
-    grid-template-columns: minmax(380px, .9fr) minmax(0, 1.6fr);
+    grid-template-columns: 1fr;
     gap: 16px;
     margin-bottom: 22px;
 }
@@ -891,7 +876,14 @@
 
     .owner-summary-grid {
         grid-template-columns:
-            repeat(2, minmax(0, 1fr));
+            repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .page-dashboard .main > .owner-summary-grid {
+        width: 100% !important;
+        max-width: 100% !important;
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr)) !important;
     }
 
 
@@ -938,7 +930,11 @@
     .owner-summary-grid,
     .owner-secondary-grid,
     .owner-quick-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
+    }
+
+    .page-dashboard .main > .owner-summary-grid {
+        grid-template-columns: 1fr !important;
     }
 
 }
@@ -1154,66 +1150,87 @@
             font-weight: 700;
         }
 
-        .transaction-chart-card .transaction-bars {
+        .transaction-chart-card .transaction-pie-layout {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            align-items: end;
-            gap: 12px;
-            margin-top: 16px;
-            min-height: 160px;
+            grid-template-columns: 150px minmax(0, 1fr);
+            gap: 18px;
+            align-items: center;
+            margin-top: 20px;
         }
 
-        .transaction-chart-card .transaction-row {
-            display: flex;
-            min-height: 160px;
-            flex-direction: column;
-            justify-content: flex-end;
-            gap: 8px;
+        .transaction-chart-card .transaction-donut {
+            width: 150px;
+            height: 150px;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            position: relative;
+            background: #e5e7eb;
+            box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .06);
+        }
+
+        .transaction-chart-card .transaction-donut::before {
+            content: "";
+            position: absolute;
+            width: 92px;
+            height: 92px;
+            border-radius: 999px;
+            background: #ffffff;
+            box-shadow: 0 8px 22px rgba(15, 23, 42, .08);
+        }
+
+        .transaction-chart-card .transaction-donut-value {
+            position: relative;
+            z-index: 1;
+            color: #0f172a;
+            font-size: 27px;
+            font-weight: 900;
+            line-height: 1;
             text-align: center;
         }
 
-        .transaction-chart-card .transaction-label strong {
+        .transaction-chart-card .transaction-donut-value span {
             display: block;
-            color: #0f172a;
-            font-size: 13px;
-            font-weight: 900;
+            margin-top: 6px;
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 800;
         }
 
-        .transaction-chart-card .transaction-label span,
-        .transaction-chart-card .transaction-count {
+        .transaction-chart-card .transaction-breakdown {
+            display: grid;
+            gap: 10px;
+        }
+
+        .transaction-chart-card .transaction-pie-row {
+            display: grid;
+            grid-template-columns: 12px minmax(0, 1fr) auto;
+            gap: 9px;
+            align-items: center;
+            min-width: 0;
+        }
+
+        .transaction-chart-card .transaction-pie-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+        }
+
+        .transaction-chart-card .transaction-pie-label {
+            min-width: 0;
+            color: #0f172a;
+            font-size: 12px;
+            font-weight: 900;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .transaction-chart-card .transaction-pie-count {
             color: #64748b;
             font-size: 12px;
-            font-weight: 700;
-        }
-
-        .transaction-chart-card .transaction-count {
-            text-align: center;
-        }
-
-        .transaction-chart-card .transaction-track {
-            display: flex;
-            width: 46px;
-            height: 86px;
-            align-items: flex-end;
-            overflow: hidden;
-            border-radius: 12px;
-            background: #eef4ff;
-            box-shadow: inset 0 0 0 1px #dbe5f5;
-            margin: 0 auto;
-        }
-
-        .transaction-chart-card .transaction-sales {
-            display: block;
-            width: 100%;
-            background: #2563eb;
-            min-width: 0;
-        }
-
-        .transaction-chart-card .transaction-procurement {
-            display: block;
-            width: 100%;
-            background: #f59e0b;
-            min-width: 0;
+            font-weight: 800;
+            text-align: right;
         }
 
         .top-products-card {
@@ -1296,6 +1313,7 @@
         .dashboard-overview-card {
             grid-column: 1 / -1 !important;
             width: 100% !important;
+            max-width: none !important;
             padding: 0 !important;
             overflow: visible !important;
             background: transparent !important;
@@ -1309,6 +1327,10 @@
             gap: 18px;
             width: 100%;
             align-items: stretch;
+        }
+
+        .transaction-overview-grid .top-products-card {
+            grid-column: auto;
         }
 
         .page-dashboard .main {
@@ -1378,12 +1400,13 @@
                 grid-template-columns: 1fr;
             }
 
-            .transaction-chart-card .transaction-row {
-                min-height: 150px;
+            .transaction-overview-grid .top-products-card {
+                grid-column: auto;
             }
 
-            .transaction-chart-card .transaction-bars {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+            .transaction-chart-card .transaction-pie-layout {
+                grid-template-columns: 1fr;
+                justify-items: center;
             }
         }
     </style>
@@ -1628,22 +1651,34 @@
             }
 
             const renderOverview = (title, subtitle, key, barClass, legendLabel) => {
-                const maxTotal = Math.max(1, ...transactionPeriods.map((period) => period[key]));
+                const colors = ['#2563eb', '#60a5fa', '#93c5fd', '#dbeafe'];
+                const procurementColors = ['#f59e0b', '#fbbf24', '#fde68a', '#fff7ed'];
+                const chartColors = barClass === 'transaction-procurement'
+                    ? procurementColors
+                    : colors;
+                const total = transactionPeriods.reduce((sum, period) => sum + Number(period[key] || 0), 0);
                 const yearTotal = transactionPeriods.find((period) => period.label === 'This Year')?.[key] ?? 0;
-                const rows = transactionPeriods.map((period) => {
-                    const value = period[key];
-                    const filledHeight = value > 0 ? Math.max(8, (value / maxTotal) * 100) : 0;
+                let currentPercent = 0;
+
+                const segments = total > 0
+                    ? transactionPeriods.map((period, index) => {
+                        const value = Number(period[key] || 0);
+                        const start = currentPercent;
+                        const end = currentPercent + (value / total) * 100;
+                        currentPercent = end;
+
+                        return `${chartColors[index]} ${start}% ${end}%`;
+                    }).join(', ')
+                    : '#e5e7eb 0% 100%';
+
+                const rows = transactionPeriods.map((period, index) => {
+                    const value = Number(period[key] || 0);
 
                     return `
-                        <div class="transaction-row">
-                            <div class="transaction-count">${value} total</div>
-                            <div class="transaction-track" aria-label="${period.label}: ${value} ${legendLabel.toLowerCase()}">
-                                <span class="${barClass}" style="height: ${filledHeight}%"></span>
-                            </div>
-                            <div class="transaction-label">
-                                <strong>${period.label}</strong>
-                                <span>${value} ${legendLabel.toLowerCase()}</span>
-                            </div>
+                        <div class="transaction-pie-row">
+                            <span class="transaction-pie-dot" style="background: ${chartColors[index]}"></span>
+                            <span class="transaction-pie-label">${period.label}</span>
+                            <span class="transaction-pie-count">${value} ${legendLabel.toLowerCase()}</span>
                         </div>
                     `;
                 }).join('');
@@ -1660,7 +1695,19 @@
                                 <span>This year</span>
                             </div>
                         </div>
-                        <div class="transaction-bars">${rows}</div>
+                        <div class="transaction-pie-layout">
+                            <div
+                                class="transaction-donut"
+                                style="background: conic-gradient(${segments})"
+                                aria-label="${title}: ${total} ${legendLabel.toLowerCase()}"
+                            >
+                                <div class="transaction-donut-value">
+                                    ${yearTotal}
+                                    <span>This year</span>
+                                </div>
+                            </div>
+                            <div class="transaction-breakdown">${rows}</div>
+                        </div>
                         <div class="transaction-legend">
                             <span><i class="${barClass}"></i> ${legendLabel}</span>
                         </div>

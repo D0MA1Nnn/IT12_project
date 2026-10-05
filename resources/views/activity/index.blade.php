@@ -46,6 +46,12 @@
     </div>
 
 @if ($logs->hasPages())
+@php
+    $currentPage = $logs->currentPage();
+    $lastPage = $logs->lastPage();
+    $startPage = max(1, min($currentPage - 1, $lastPage - 2));
+    $endPage = min($lastPage, $startPage + 2);
+@endphp
 <div class="activity-log-pagination">
     <div class="muted">
         Showing {{ $logs->firstItem() }} to {{ $logs->lastItem() }} of {{ $logs->total() }} results
@@ -58,13 +64,13 @@
             <a class="btn light" href="{{ $logs->previousPageUrl() }}">&lsaquo; Previous</a>
         @endif
 
-        @foreach ($logs->getUrlRange(1, $logs->lastPage()) as $page => $url)
-            @if ($page == $logs->currentPage())
+        @for ($page = $startPage; $page <= $endPage; $page++)
+            @if ($page === $currentPage)
                 <span class="btn primary">{{ $page }}</span>
             @else
-                <a class="btn light" href="{{ $url }}">{{ $page }}</a>
+                <a class="btn light" href="{{ $logs->url($page) }}">{{ $page }}</a>
             @endif
-        @endforeach
+        @endfor
 
         @if ($logs->hasMorePages())
             <a class="btn light" href="{{ $logs->nextPageUrl() }}">Next &rsaquo;</a>
@@ -99,13 +105,21 @@ body {
     flex: 1 1 auto;
     flex-direction: column;
     min-height: 0;
+    max-height: none !important;
     overflow: hidden;
 }
 
 .activity-log-filter {
     flex: 0 0 auto;
+    width: fit-content;
+    max-width: 100%;
     justify-content: flex-start;
     margin-bottom: 22px;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
 }
 
 .activity-log-select,

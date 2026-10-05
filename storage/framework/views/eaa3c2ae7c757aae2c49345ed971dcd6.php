@@ -1,50 +1,49 @@
-@extends('layouts.app')
+<?php $__env->startSection('title', 'Sales Report'); ?>
 
-@section('title', 'Sales Report')
-
-@section('content')
+<?php $__env->startSection('content'); ?>
 <div class="print-report-title">
     <h1>Sales Report</h1>
     <p>
-        Generated {{ now()->format('M d, Y g:i A') }}
+        Generated <?php echo e(now()->format('M d, Y g:i A')); ?>
+
     </p>
 </div>
 
 <div class="sales-report-summary">
     <div class="card sales-report-stat">
         <span class="stat-label">Completed Sales</span>
-        <strong>{{ $totalSales }}</strong>
+        <strong><?php echo e($totalSales); ?></strong>
     </div>
 
     <div class="card sales-report-stat">
         <span class="stat-label">Total Sales Amount</span>
-        <strong>₱{{ number_format($totalAmount, 2) }}</strong>
+        <strong>₱<?php echo e(number_format($totalAmount, 2)); ?></strong>
     </div>
 
     <div class="card sales-report-stat">
         <span class="stat-label">Average Sale</span>
-        <strong>₱{{ number_format($averageSale, 2) }}</strong>
+        <strong>₱<?php echo e(number_format($averageSale, 2)); ?></strong>
     </div>
 
     <div class="card sales-report-stat sales-report-split">
         <div>
             <span class="stat-label">Walk-in</span>
-            <strong>{{ $walkInSales }}</strong>
+            <strong><?php echo e($walkInSales); ?></strong>
         </div>
 
         <div>
             <span class="stat-label">Delivery</span>
-            <strong>{{ $deliverySales }}</strong>
+            <strong><?php echo e($deliverySales); ?></strong>
         </div>
     </div>
 </div>
 
-<form method="GET" action="{{ route('sales.report') }}" class="toolbar sales-report-filter no-print">
+<form method="GET" action="<?php echo e(route('sales.report')); ?>" class="toolbar sales-report-filter no-print">
     <div class="sales-report-search">
         <span>⌕</span>
         <input
             name="q"
-            value="{{ old('q', request('q')) }}"
+            value="<?php echo e(old('q', request('q'))); ?>"
             placeholder="Search sale reference or user..."
         >
     </div>
@@ -54,8 +53,8 @@
         <input
             type="date"
             name="from"
-            value="{{ old('from', request('from')) }}"
-            max="{{ now()->toDateString() }}"
+            value="<?php echo e(old('from', request('from'))); ?>"
+            max="<?php echo e(now()->toDateString()); ?>"
             title="Use a valid date only."
         >
     </label>
@@ -65,8 +64,8 @@
         <input
             type="date"
             name="to"
-            value="{{ old('to', request('to')) }}"
-            max="{{ now()->toDateString() }}"
+            value="<?php echo e(old('to', request('to'))); ?>"
+            max="<?php echo e(now()->toDateString()); ?>"
             title="Use a valid date only."
         >
     </label>
@@ -74,9 +73,9 @@
     <div class="sales-report-filter-actions">
         <button class="btn primary">Filter</button>
 
-        @if(request()->hasAny(['q', 'from', 'to']))
-            <a class="btn light" href="{{ route('sales.report') }}">Clear</a>
-        @endif
+        <?php if(request()->hasAny(['q', 'from', 'to'])): ?>
+            <a class="btn light" href="<?php echo e(route('sales.report')); ?>">Clear</a>
+        <?php endif; ?>
 
         <button type="button" class="btn primary sales-report-print" onclick="window.print()">
             Print Report
@@ -89,14 +88,15 @@
         <div>
             <h3>Sales List</h3>
             <p>
-                @if(request()->filled('from') || request()->filled('to'))
+                <?php if(request()->filled('from') || request()->filled('to')): ?>
                     Showing filtered sales from
-                    {{ request('from') ? \Carbon\Carbon::parse(request('from'))->format('M d, Y') : 'the beginning' }}
+                    <?php echo e(request('from') ? \Carbon\Carbon::parse(request('from'))->format('M d, Y') : 'the beginning'); ?>
+
                     to
-                    {{ request('to') ? \Carbon\Carbon::parse(request('to'))->format('M d, Y') : 'today' }}.
-                @else
+                    <?php echo e(request('to') ? \Carbon\Carbon::parse(request('to'))->format('M d, Y') : 'today'); ?>.
+                <?php else: ?>
                     Showing all sales.
-                @endif
+                <?php endif; ?>
             </p>
         </div>
     </div>
@@ -114,64 +114,65 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($sales as $sale)
+                <?php $__empty_1 = true; $__currentLoopData = $sales; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $sale): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                     <tr>
-                        <td><strong>SALE-{{ str_pad($sale->sale_id, 4, '0', STR_PAD_LEFT) }}</strong></td>
-                        <td>{{ $sale->sale_date->format('m/d/Y g:i A') }}</td>
-                        <td>{{ $sale->items->count() }}</td>
-                        <td><strong>₱{{ number_format((float) $sale->total_amount, 2) }}</strong></td>
+                        <td><strong>SALE-<?php echo e(str_pad($sale->sale_id, 4, '0', STR_PAD_LEFT)); ?></strong></td>
+                        <td><?php echo e($sale->sale_date->format('m/d/Y g:i A')); ?></td>
+                        <td><?php echo e($sale->items->count()); ?></td>
+                        <td><strong>₱<?php echo e(number_format((float) $sale->total_amount, 2)); ?></strong></td>
                         <td>
-                            <span class="delivery-badge {{ $sale->delivery_required ? 'required' : 'walk-in' }}">
-                                {{ $sale->delivery_required ? 'Required' : 'Walk-in' }}
+                            <span class="delivery-badge <?php echo e($sale->delivery_required ? 'required' : 'walk-in'); ?>">
+                                <?php echo e($sale->delivery_required ? 'Required' : 'Walk-in'); ?>
+
                             </span>
                         </td>
-                        <td>{{ $sale->user?->username ?? '—' }}</td>
+                        <td><?php echo e($sale->user?->username ?? '—'); ?></td>
                     </tr>
-                @empty
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                     <tr>
                         <td colspan="6" class="muted" style="text-align:center;padding:30px">No sales found.</td>
                     </tr>
-                @endforelse
+                <?php endif; ?>
             </tbody>
         </table>
     </div>
 
-    @if($sales->hasPages())
-        @php
+    <?php if($sales->hasPages()): ?>
+        <?php
             $currentPage = $sales->currentPage();
             $lastPage = $sales->lastPage();
             $startPage = max(1, min($currentPage - 1, $lastPage - 2));
             $endPage = min($lastPage, $startPage + 2);
-        @endphp
+        ?>
 
         <div class="sales-report-pagination no-print">
             <div class="muted">
-                Showing {{ $sales->firstItem() }} to {{ $sales->lastItem() }} of {{ $sales->total() }} results
+                Showing <?php echo e($sales->firstItem()); ?> to <?php echo e($sales->lastItem()); ?> of <?php echo e($sales->total()); ?> results
             </div>
 
             <div class="sales-report-page-links">
-                @if($sales->onFirstPage())
+                <?php if($sales->onFirstPage()): ?>
                     <span class="sales-report-page-link disabled-link">&lsaquo; Previous</span>
-                @else
-                    <a class="sales-report-page-link" href="{{ $sales->previousPageUrl() }}">&lsaquo; Previous</a>
-                @endif
+                <?php else: ?>
+                    <a class="sales-report-page-link" href="<?php echo e($sales->previousPageUrl()); ?>">&lsaquo; Previous</a>
+                <?php endif; ?>
 
-                @for($page = $startPage; $page <= $endPage; $page++)
-                    @if($page === $currentPage)
-                        <span class="sales-report-page-link active">{{ $page }}</span>
-                    @else
-                        <a class="sales-report-page-link" href="{{ $sales->url($page) }}">{{ $page }}</a>
-                    @endif
-                @endfor
+                <?php for($page = $startPage; $page <= $endPage; $page++): ?>
+                    <?php if($page === $currentPage): ?>
+                        <span class="sales-report-page-link active"><?php echo e($page); ?></span>
+                    <?php else: ?>
+                        <a class="sales-report-page-link" href="<?php echo e($sales->url($page)); ?>"><?php echo e($page); ?></a>
+                    <?php endif; ?>
+                <?php endfor; ?>
 
-                @if($sales->hasMorePages())
-                    <a class="sales-report-page-link" href="{{ $sales->nextPageUrl() }}">Next &rsaquo;</a>
-                @else
+                <?php if($sales->hasMorePages()): ?>
+                    <a class="sales-report-page-link" href="<?php echo e($sales->nextPageUrl()); ?>">Next &rsaquo;</a>
+                <?php else: ?>
                     <span class="sales-report-page-link disabled-link">Next &rsaquo;</span>
-                @endif
+                <?php endif; ?>
             </div>
         </div>
-    @endif
+    <?php endif; ?>
 </div>
 
 <style>
@@ -479,4 +480,6 @@ body {
     }
 }
 </style>
-@endsection
+<?php $__env->stopSection(); ?>
+
+<?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\Projects\IT12_project\resources\views/sales/report.blade.php ENDPATH**/ ?>

@@ -132,6 +132,11 @@
                                             </div>
 
                                             <div>
+                                                <span>Delivery Fee</span>
+                                                <strong>₱{{ number_format((float) $sale->delivery_fee, 2) }}</strong>
+                                            </div>
+
+                                            <div>
                                                 <span>Recorded By</span>
                                                 <strong>{{ $sale->user?->username ?? '—' }}</strong>
                                             </div>
@@ -227,15 +232,44 @@
             </tbody>
         </table>
     </div>
-</div>
 
-@if($sales->hasPages())
-    <div class="sales-pagination">
-        <a class="btn light small {{ $sales->onFirstPage() ? 'disabled-link' : '' }}" href="{{ $sales->previousPageUrl() ?: '#' }}">Previous</a>
-        <span class="muted">Page {{ $sales->currentPage() }} of {{ $sales->lastPage() }}</span>
-        <a class="btn light small {{ $sales->hasMorePages() ? '' : 'disabled-link' }}" href="{{ $sales->nextPageUrl() ?: '#' }}">Next</a>
-    </div>
-@endif
+    @if($sales->hasPages())
+        @php
+            $currentPage = $sales->currentPage();
+            $lastPage = $sales->lastPage();
+            $startPage = max(1, min($currentPage - 1, $lastPage - 2));
+            $endPage = min($lastPage, $startPage + 2);
+        @endphp
+
+        <div class="sales-pagination">
+            <div class="muted">
+                Showing {{ $sales->firstItem() }} to {{ $sales->lastItem() }} of {{ $sales->total() }} results
+            </div>
+
+            <div class="sales-page-links">
+                @if($sales->onFirstPage())
+                    <span class="sales-page-link disabled-link">&lsaquo; Previous</span>
+                @else
+                    <a class="sales-page-link" href="{{ $sales->previousPageUrl() }}">&lsaquo; Previous</a>
+                @endif
+
+                @for($page = $startPage; $page <= $endPage; $page++)
+                    @if($page === $currentPage)
+                        <span class="sales-page-link active">{{ $page }}</span>
+                    @else
+                        <a class="sales-page-link" href="{{ $sales->url($page) }}">{{ $page }}</a>
+                    @endif
+                @endfor
+
+                @if($sales->hasMorePages())
+                    <a class="sales-page-link" href="{{ $sales->nextPageUrl() }}">Next &rsaquo;</a>
+                @else
+                    <span class="sales-page-link disabled-link">Next &rsaquo;</span>
+                @endif
+            </div>
+        </div>
+    @endif
+</div>
 
 <style>
 .sales-filter-bar,
@@ -401,8 +435,37 @@
 }
 
 .sales-pagination {
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-top: 1px solid #edf1f6;
+}
+
+.sales-page-links {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.sales-page-link {
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    margin-top: 18px;
+    min-width: 44px;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 10px;
+    background: #eef2f8;
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.sales-page-link.active {
+    background: #2468ee;
+    color: #ffffff;
 }
 
 .sale-status {

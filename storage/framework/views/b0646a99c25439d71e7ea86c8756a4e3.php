@@ -67,17 +67,13 @@
             min-height: 100vh;
         }
 
-        .brand {
-            font-size: 20px;
-            font-weight: 800;
-            padding: 0 10px;
-        }
-
-        .sub {
-            font-size: 11px;
-            color: #9aa7ba;
-            padding: 7px 10px;
-            line-height: 1.45;
+        .brand-logo {
+            display: block;
+            width: 96px;
+            height: 96px;
+            margin: 0 auto 8px;
+            border-radius: 50%;
+            object-fit: cover;
         }
 
         .role {
@@ -138,10 +134,135 @@
            MAIN CONTENT
         ========================================================= */
 
+        html,
+        body {
+            height: 100%;
+            overflow: hidden;
+        }
+
         .main {
             margin-left: 218px;
             padding: 26px 30px;
+            height: 100vh;
             min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .app-date-time {
+            position: absolute;
+            top: 22px;
+            right: 30px;
+            z-index: 4;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 3px;
+            color: #0f172a;
+            line-height: 1.2;
+            text-align: right;
+            pointer-events: none;
+        }
+
+        .app-date-time .app-time {
+            font-size: 18px;
+            font-weight: 900;
+            letter-spacing: .2px;
+        }
+
+        .app-date-time .app-date {
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748b;
+        }
+
+        .app-backup-status {
+            position: absolute;
+            top: 36px;
+            right: 265px;
+            z-index: 7;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border: 0 !important;
+            border-radius: 999px !important;
+            background: #ffffff !important;
+            box-shadow: 0 8px 22px rgba(15, 23, 42, .12) !important;
+            cursor: default;
+        }
+
+        .app-backup-status-dot {
+            width: 10px;
+            height: 10px;
+            display: block;
+            border-radius: 999px;
+        }
+
+        .app-backup-status.is-online .app-backup-status-dot {
+            background: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, .14);
+        }
+
+        .app-backup-status.is-offline .app-backup-status-dot {
+            background: #94a3b8;
+            box-shadow: 0 0 0 4px rgba(148, 163, 184, .16);
+        }
+
+        .app-backup-status-text {
+            position: absolute;
+            top: 25px;
+            right: 50%;
+            min-width: max-content;
+            padding: 7px 10px;
+            border-radius: 9px;
+            color: #ffffff;
+            background: #0f172a;
+            font-size: 12px;
+            font-weight: 800;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(50%) translateY(-4px);
+            transition: opacity .16s ease, transform .16s ease;
+        }
+
+        .app-backup-status:hover .app-backup-status-text {
+            opacity: 1;
+            transform: translateX(50%) translateY(0);
+        }
+
+        .app-date-time-spacer {
+            display: none;
+        }
+
+        .app-module-heading {
+            min-height: 48px;
+            margin-bottom: 18px;
+            padding-right: 230px;
+            display: block !important;
+            visibility: visible !important;
+        }
+
+        .app-module-heading h1 {
+            margin: 0;
+            color: #0f172a;
+            font-size: 28px;
+            font-weight: 900;
+            line-height: 1.1;
+            letter-spacing: -.3px;
+            display: block !important;
+            visibility: visible !important;
+        }
+
+        .app-module-heading p {
+            margin: 8px 0 0;
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.35;
+            display: block !important;
+            visibility: visible !important;
         }
 
         .top {
@@ -382,22 +503,34 @@
 
         .tabs {
             display: flex;
-            gap: 10px;
-            margin-bottom: 26px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 4px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid #dbe4f0;
         }
 
         .tabs a {
-            padding: 11px 20px;
-            border-radius: 7px;
-            background: #ffffff;
-            color: #354052;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 0 18px;
+            border: 1px solid #e1e7ef;
+            border-bottom: 0;
+            border-radius: 10px 10px 0 0;
+            background: #eef3f9;
+            color: #64748b;
             text-decoration: none;
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 800;
         }
 
         .tabs a.active {
-            background: #2468ee;
-            color: #ffffff;
+            background: #ffffff;
+            color: #2563eb;
+            border-color: #dbe4f0;
+            box-shadow: 0 -1px 0 rgba(15, 23, 42, .03);
         }
 
 
@@ -835,10 +968,525 @@
             }
         }
 
-    </style>
+        @media (max-width: 760px) {
+            .app-date-time {
+                position: static;
+                align-items: flex-start;
+                margin-bottom: 14px;
+            }
+
+            .app-backup-status {
+                top: 36px;
+                right: 30px;
+            }
+
+            .app-module-heading {
+                min-height: 0;
+                padding-right: 0;
+            }
+
+            .app-date-time-spacer {
+                display: none;
+            }
+        }
+
+        .page-sales-report form input[type="search"],
+        .page-sales-report form input[name="q"],
+        .page-sales-report form input[placeholder*="Search sale"] {
+            width: 700px !important;
+            min-width: 700px !important;
+            max-width: 700px !important;
+            flex: 0 0 700px !important;
+            margin-right: 0 !important;
+        }
+
+        .page-sales-report form {
+            width: 100% !important;
+            justify-content: flex-start !important;
+        }
+
+        .page-sales-report form > *:first-child {
+            margin-left: 0 !important;
+        }
+
+        .page-sales-report form input[type="search"]:first-child,
+        .page-sales-report form input[name="q"]:first-child,
+        .page-sales-report form input[placeholder*="Search sale"]:first-child {
+            margin-left: 0 !important;
+        }
+
+        @media print {
+            .app-date-time,
+            .app-date-time-spacer {
+                display: none !important;
+            }
+        }
+
+        .page-activity .main,
+        .page-users .main,
+        .page-backup .main {
+            background:
+                radial-gradient(circle at top right, rgba(37, 99, 235, .06), transparent 30%),
+                #f4f7fb;
+        }
+
+        .page-activity .main > :not(.app-date-time):not(.app-date-time-spacer):not(.app-module-heading),
+        .page-users .main > :not(.app-date-time):not(.app-date-time-spacer):not(.app-module-heading),
+        .page-backup .main > :not(.app-date-time):not(.app-date-time-spacer):not(.app-module-heading):not(.app-backup-status) {
+            border-radius: 16px;
+        }
+
+        .page-activity form,
+        .page-users form,
+        .page-backup form {
+            border: 1px solid #e5ebf3;
+            border-radius: 14px;
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+        }
+
+        .page-activity input,
+        .page-activity select,
+        .page-users input,
+        .page-users select,
+        .page-backup input,
+        .page-backup select,
+        input[type="date"] {
+            min-height: 42px;
+            border: 1px solid #d9e2ef;
+            border-radius: 10px;
+            background: #f8fbff;
+            color: #0f172a;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        input[type="date"] {
+            min-width: 170px;
+            padding: 0 14px;
+            line-height: 42px;
+            box-sizing: border-box;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            display: block;
+            width: 18px;
+            height: 18px;
+            margin-left: 8px;
+            opacity: .75;
+            cursor: pointer;
+        }
+
+        body:has(.sidebar a.active[href*="sales-report"]) input[type="date"],
+        body:has(.sidebar a.active[href*="sales/report"]) input[type="date"],
+        body:has(.sidebar a.active[href*="report"]) input[type="date"] {
+            display: inline-flex;
+            align-items: center;
+            height: 42px;
+            min-width: 150px;
+            padding: 0 14px !important;
+            vertical-align: middle;
+        }
+
+        .page-sales-report input[type="date"] {
+            width: 170px !important;
+            min-width: 170px !important;
+            max-width: 170px !important;
+            padding: 0 10px 0 14px !important;
+            color: #0f172a !important;
+            text-indent: 0;
+            background-color: #f8fbff;
+            background-image: none;
+            cursor: pointer;
+        }
+
+        .page-sales-report input[type="date"]::-webkit-datetime-edit,
+        .page-sales-report input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+        .page-sales-report input[type="date"]::-webkit-datetime-edit-text,
+        .page-sales-report input[type="date"]::-webkit-datetime-edit-month-field,
+        .page-sales-report input[type="date"]::-webkit-datetime-edit-day-field,
+        .page-sales-report input[type="date"]::-webkit-datetime-edit-year-field {
+            color: #0f172a;
+        }
+
+        .page-sales-report input[type="date"]::-webkit-calendar-picker-indicator {
+            display: block !important;
+            width: 18px;
+            height: 18px;
+            margin: 0 0 0 8px;
+            opacity: .75;
+            cursor: pointer;
+        }
+
+        .page-sales-report form input[type="search"],
+        .page-sales-report form input[name="q"],
+        .page-sales-report form input[placeholder*="Search sale"] {
+            width: 38% !important;
+            min-width: 320px;
+            flex: 0 0 38% !important;
+            margin-right: auto;
+        }
+
+        .page-sales-report form {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: nowrap;
+        }
+
+        .page-sales-report form button,
+        .page-sales-report form a {
+            flex: 0 0 auto;
+        }
+
+        .page-activity button,
+        .page-activity .btn,
+        .page-users button,
+        .page-users .btn,
+        .page-backup button,
+        .page-backup .btn {
+            min-height: 40px;
+            border-radius: 10px;
+            font-weight: 800;
+        }
+
+        .page-activity table,
+        .page-users table,
+        .page-backup table {
+            width: 100%;
+            border-collapse: collapse;
+            overflow: hidden;
+            border-radius: 14px;
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+        }
+
+        .page-activity thead th,
+        .page-users thead th,
+        .page-backup thead th {
+            background: #e8eef8;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: .02em;
+            text-transform: uppercase;
+        }
+
+        .page-activity tbody td,
+        .page-users tbody td,
+        .page-backup tbody td {
+            color: #0f172a;
+            font-size: 13px;
+            font-weight: 500;
+            border-bottom: 1px solid #edf2f7;
+        }
+
+        .page-activity tbody tr:hover,
+        .page-users tbody tr:hover,
+        .page-backup tbody tr:hover {
+            background: #f8fbff;
+        }
+
+        .page-activity .main > div:has(table),
+        .page-users .main > div:has(table) {
+            overflow: hidden;
+            border: 1px solid #e5ebf3;
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+        }
+
+        .page-activity .main > div:has(table) {
+            max-height: calc(100vh - 230px);
+            overflow-y: auto;
+        }
+
+        .page-users .main > div:has(table) {
+            max-height: calc(100vh - 220px);
+            overflow-y: auto;
+        }
+
+        .page-backup .main {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page-backup .main > div:not(.app-date-time):not(.app-date-time-spacer):not(.app-module-heading):not(.app-backup-status) {
+            border: 1px solid #e5ebf3;
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+        }
+
+        .role-salesclerk .sidebar a[href*="dashboard"],
+        .role-salesclerk .sidebar a[href*="sales-report"],
+        .role-salesclerk .sidebar a[href*="sales/report"] {
+            display: none !important;
+        }
+
+        .role-salesclerk .sidebar {
+            display: none !important;
+        }
+
+        .role-salesclerk .main {
+            margin-left: 0 !important;
+            padding: 24px 28px !important;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .role-salesclerk .app-module-heading {
+            min-height: 58px;
+            margin-bottom: 8px;
+            padding-right: 330px;
+            display: flex !important;
+            align-items: center;
+            gap: 14px;
+            justify-content: flex-start;
+        }
+
+        .role-salesclerk .app-module-heading h1,
+        .role-salesclerk .app-module-heading p {
+            display: none !important;
+        }
+
+        .role-salesclerk .app-module-heading::before {
+            content: none;
+            display: none;
+        }
+
+        .role-salesclerk .app-module-heading::after {
+            content: none;
+            display: none;
+        }
+
+        .salesclerk-top-logo {
+            display: block;
+            width: 78px;
+            height: 78px;
+            object-fit: contain;
+            margin-left: 0;
+            margin-right: auto;
+            position: static !important;
+            transform: none !important;
+        }
+
+        .salesclerk-signout {
+            position: absolute;
+            top: 82px;
+            right: 30px;
+            z-index: 6;
+            display: none;
+        }
+
+        .role-salesclerk .salesclerk-signout {
+            display: block;
+        }
+
+        .salesclerk-signout button {
+            min-height: 38px;
+            border: 0;
+            border-radius: 10px;
+            background: transparent;
+            color: #ef4444;
+            padding: 0;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: none;
+        }
+
+        .signout-modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(15, 23, 42, .55);
+            backdrop-filter: blur(2px);
+        }
+
+        .signout-modal-overlay.is-open {
+            display: flex;
+        }
+
+        .signout-modal {
+            width: min(420px, 100%);
+            border-radius: 18px;
+            background: #fff;
+            padding: 26px;
+            box-shadow: 0 24px 80px rgba(15, 23, 42, .28);
+            text-align: center;
+        }
+
+        .signout-modal-icon {
+            display: grid;
+            width: 48px;
+            height: 48px;
+            place-items: center;
+            margin: 0 auto 16px;
+            border-radius: 999px;
+            background: #fee2e2;
+            color: #ef4444;
+            font-size: 22px;
+            font-weight: 900;
+        }
+
+        .signout-modal h2 {
+            margin: 0;
+            color: #0f172a;
+            font-size: 22px;
+            font-weight: 800;
+        }
+
+        .signout-modal p {
+            margin: 10px 0 0;
+            color: #64748b;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        .signout-modal-actions {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .signout-modal-actions button {
+            min-width: 110px;
+            min-height: 42px;
+            border: 0;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .signout-cancel {
+            background: #eef2f7;
+            color: #0f172a;
+        }
+
+        .signout-confirm {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        .role-salesclerk .app-date-time {
+            right: 30px;
+        }
+
+        .user-modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 80;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(15, 23, 42, .55);
+            backdrop-filter: blur(2px);
+        }
+
+        .user-modal-overlay.is-open {
+            display: flex;
+        }
+
+        .user-modal {
+            width: min(720px, 100%);
+            max-height: calc(100vh - 48px);
+            overflow-y: auto;
+            border-radius: 18px;
+            background: #fff;
+            box-shadow: 0 24px 80px rgba(15, 23, 42, .28);
+        }
+
+        .user-modal-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 24px 28px 14px;
+            border-bottom: 1px solid #edf2f7;
+        }
+
+        .user-modal-header h2 {
+            margin: 0;
+            color: #0f172a;
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        .user-modal-header p {
+            margin: 6px 0 0;
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .user-modal-close {
+            width: 38px;
+            height: 38px;
+            border: 0;
+            border-radius: 10px;
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 22px;
+            cursor: pointer;
+        }
+
+        .user-modal-body {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+            padding: 22px 28px 10px;
+        }
+
+        .user-modal-field.full {
+            grid-column: 1 / -1;
+        }
+
+        .user-modal-field label {
+            display: block;
+            margin-bottom: 8px;
+            color: #0f172a;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .user-modal-field input,
+        .user-modal-field select {
+            width: 100%;
+            min-height: 44px;
+            border: 1px solid #d9e2ef;
+            border-radius: 10px;
+            background: #f8fbff;
+            color: #0f172a;
+            padding: 0 14px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .user-modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 18px 28px 28px;
+        }
+
+        @media (max-width: 720px) {
+            .user-modal-body {
+                grid-template-columns: 1fr;
+            }
+        }
+</style>
 </head>
 
-<body>
+<body class="<?php if(auth()->check() && strtolower(str_replace([' ', '_', '-'], '', auth()->user()->role)) === 'salesclerk'): ?> role-salesclerk <?php endif; ?> <?php if(request()->routeIs('dashboard') || request()->routeIs('dashboard.*') || request()->is('dashboard')): ?> page-dashboard <?php endif; ?> <?php if(request()->is('sales-report*') || request()->is('sales/report*') || request()->routeIs('sales.report')): ?> page-sales-report <?php endif; ?> <?php if(request()->is('activity*')): ?> page-activity <?php endif; ?> <?php if(request()->is('users*')): ?> page-users <?php endif; ?> <?php if(request()->is('backup*')): ?> page-backup <?php endif; ?>">
 
 <div class="shell">
 
@@ -848,14 +1496,11 @@
 
         <aside class="sidebar">
 
-            <div class="brand">
-                SENADOR COCO
-            </div>
-
-            <div class="sub">
-                Lumber and Construction Supply<br>
-                Inventory & Sales Management System
-            </div>
+            <img
+                class="brand-logo"
+                src="<?php echo e(asset('images/senador-coco-logo.png')); ?>"
+                alt="Senador Coco logo"
+            >
 
             <div class="role">
 
@@ -881,6 +1526,13 @@
                     </a>
 
                     <a
+                        class="<?php echo e(request()->routeIs('sales.create', 'sales.index', 'sales.store') ? 'active' : ''); ?>"
+                        href="<?php echo e(route('sales.create')); ?>"
+                    >
+                        Sales Management
+                    </a>
+
+                    <a
                         class="<?php echo e(request()->routeIs('products.*', 'categories.*', 'units.*', 'inventory.*') ? 'active' : ''); ?>"
                         href="<?php echo e(route('products.index')); ?>"
                     >
@@ -895,10 +1547,10 @@
                     </a>
 
                     <a
-                        class="<?php echo e(request()->routeIs('sales.*') ? 'active' : ''); ?>"
-                        href="<?php echo e(route('sales.index')); ?>"
+                        class="<?php echo e(request()->routeIs('sales.report') ? 'active' : ''); ?>"
+                        href="<?php echo e(route('sales.report')); ?>"
                     >
-                        Sales Management
+                        Sales Report
                     </a>
 
                     <a
@@ -934,10 +1586,17 @@
                     </a>
 
                     <a
-                        class="<?php echo e(request()->routeIs('sales.*') ? 'active' : ''); ?>"
-                        href="<?php echo e(route('sales.index')); ?>"
+                        class="<?php echo e(request()->routeIs('sales.create', 'sales.index', 'sales.store') ? 'active' : ''); ?>"
+                        href="<?php echo e(route('sales.create')); ?>"
                     >
                         Sales Management
+                    </a>
+
+                    <a
+                        class="<?php echo e(request()->routeIs('sales.report') ? 'active' : ''); ?>"
+                        href="<?php echo e(route('sales.report')); ?>"
+                    >
+                        Sales Report
                     </a>
 
                 <?php endif; ?>
@@ -973,9 +1632,71 @@
 
     
 
-    <main class="main">
+        <main class="main">
+            <?php if(auth()->guard()->check()): ?>
+                <?php
+                    if (request()->is('/') || request()->is('*dashboard*') || request()->routeIs('*dashboard*')) {
+                        $moduleTitle = 'Dashboard';
+                        $moduleDescription = 'Overview of today’s store activity.';
+                    } elseif (request()->is('sales-report*') || request()->is('sales/report*') || request()->routeIs('sales.report')) {
+                        $moduleTitle = 'Sales Report';
+                        $moduleDescription = 'Review completed sales, totals, and transaction records.';
+                    } elseif (request()->is('sales*') || request()->is('delivery*')) {
+                        $moduleTitle = 'Sales Management';
+                        $moduleDescription = 'Record sales, deliveries, and customer orders.';
+                    } elseif (request()->is('products*') || request()->is('categories*') || request()->is('units*') || request()->is('inventory*')) {
+                        $moduleTitle = 'Product Management';
+                        $moduleDescription = 'Manage products, categories, units, and inventory.';
+                    } elseif (request()->is('suppliers*') || request()->is('purchases*')) {
+                        $moduleTitle = 'Supplier & Purchasing';
+                        $moduleDescription = 'Manage suppliers and record material purchases.';
+                    } elseif (request()->is('activity*')) {
+                        $moduleTitle = 'Activity Logs';
+                        $moduleDescription = 'Review user and transaction activity recorded by the system.';
+                    } elseif (request()->is('users*')) {
+                        $moduleTitle = 'User Management';
+                        $moduleDescription = 'Manage authorized Owner and Sales Clerk accounts.';
+                    } elseif (request()->is('backup*')) {
+                        $moduleTitle = 'Backup & Recovery';
+                        $moduleDescription = 'Create backups and restore valid database files.';
+                    } else {
+                        $moduleTitle = null;
+                        $moduleDescription = null;
+                    }
+                ?>
 
-        <?php if(session('success')): ?>
+                <?php if($moduleTitle): ?>
+                    <div class="app-module-heading no-print">
+                        <h1><?php echo e($moduleTitle); ?></h1>
+                        <p><?php echo e($moduleDescription); ?></p>
+                    </div>
+                <?php endif; ?>
+
+                <div class="app-date-time no-print" aria-live="polite">
+                    <span class="app-time" id="appCurrentTime"><?php echo e(now()->format('g:i:s A')); ?></span>
+                    <span class="app-date" id="appCurrentDate"><?php echo e(now()->format('l, M d, Y')); ?></span>
+                </div>
+
+                <?php
+                    $globalOnlineBackupPath = rtrim((string) config('services.online_backup.path'), '\\/');
+                    $globalOnlineBackupReady = filled($globalOnlineBackupPath)
+                        && \Illuminate\Support\Facades\File::isDirectory($globalOnlineBackupPath);
+                ?>
+
+                <div
+                    class="app-backup-status <?php echo e($globalOnlineBackupReady ? 'is-online' : 'is-offline'); ?> no-print"
+                    data-backup-folder-ready="<?php echo e($globalOnlineBackupReady ? 'true' : 'false'); ?>"
+                >
+                    <span class="app-backup-status-dot"></span>
+                    <span class="app-backup-status-text">
+                        <?php echo e($globalOnlineBackupReady ? 'Online backup ready' : 'Offline backup only'); ?>
+
+                    </span>
+                </div>
+                <div class="app-date-time-spacer no-print" aria-hidden="true"></div>
+            <?php endif; ?>
+
+        <?php if(session('success') && !request()->routeIs('sales.create')): ?>
 
             <div class="alert">
                 <?php echo e(session('success')); ?>
@@ -1196,7 +1917,292 @@
 
 
 
-<?php echo $__env->yieldPushContent('scripts'); ?>
+    <?php if(auth()->guard()->check()): ?>
+        <?php if(strtolower(str_replace([' ', '_', '-'], '', auth()->user()->role)) === 'salesclerk'): ?>
+            <form class="salesclerk-signout" method="POST" action="<?php echo e(url('/logout')); ?>">
+                <?php echo csrf_field(); ?>
+                <button type="submit">Sign Out</button>
+            </form>
+        <?php endif; ?>
+
+        <div class="signout-modal-overlay" id="signoutConfirmModal" aria-hidden="true">
+            <div class="signout-modal" role="dialog" aria-modal="true" aria-labelledby="signoutConfirmTitle">
+                <div class="signout-modal-icon">!</div>
+                <h2 id="signoutConfirmTitle">Sign out?</h2>
+                <p>Are you sure you want to sign out of your account?</p>
+                <div class="signout-modal-actions">
+                    <button type="button" class="signout-cancel" data-cancel-signout>Cancel</button>
+                    <button type="button" class="signout-confirm" data-confirm-signout>Sign Out</button>
+                </div>
+            </div>
+        </div>
+
+        <?php if(request()->is('users*')): ?>
+            <div class="user-modal-overlay" id="userCreateModal" aria-hidden="true">
+                <form class="user-modal" method="POST" action="<?php echo e(url('/users')); ?>">
+                    <?php echo csrf_field(); ?>
+
+                    <div class="user-modal-header">
+                        <div>
+                            <h2>Add User</h2>
+                            <p>Create an authorized account for the system.</p>
+                        </div>
+                        <button type="button" class="user-modal-close" data-close-user-modal aria-label="Close">&times;</button>
+                    </div>
+
+                    <div class="user-modal-body">
+                        <div class="user-modal-field">
+                            <label for="modal_first_name">First Name</label>
+                            <input id="modal_first_name" name="first_name" type="text" value="<?php echo e(old('first_name')); ?>" autocomplete="given-name">
+                        </div>
+
+                        <div class="user-modal-field">
+                            <label for="modal_last_name">Last Name</label>
+                            <input id="modal_last_name" name="last_name" type="text" value="<?php echo e(old('last_name')); ?>" autocomplete="family-name">
+                        </div>
+
+                        <div class="user-modal-field">
+                            <label for="modal_username">Username</label>
+                            <input id="modal_username" name="username" type="text" value="<?php echo e(old('username')); ?>" required autocomplete="username">
+                        </div>
+
+                        <div class="user-modal-field">
+                            <label for="modal_role">Role</label>
+                            <select id="modal_role" name="role" required>
+                                <option value="salesclerk" <?php if(old('role') === 'salesclerk'): echo 'selected'; endif; ?>>Sales Clerk</option>
+                                <option value="owner" <?php if(old('role') === 'owner'): echo 'selected'; endif; ?>>Owner</option>
+                            </select>
+                        </div>
+
+                        <div class="user-modal-field">
+                            <label for="modal_password">Password</label>
+                            <input id="modal_password" name="password" type="password" required autocomplete="new-password">
+                        </div>
+
+                        <div class="user-modal-field">
+                            <label for="modal_password_confirmation">Confirm Password</label>
+                            <input id="modal_password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password">
+                        </div>
+                    </div>
+
+                    <div class="user-modal-footer">
+                        <button type="button" class="btn" data-close-user-modal>Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save User</button>
+                    </div>
+                </form>
+            </div>
+        <?php endif; ?>
+    <?php endif; ?>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('input[pattern="\\d{11}"], input[pattern="09\\d{9}"], input[data-digits-only], input[name*="contact_number"]').forEach((input) => {
+                input.addEventListener('input', () => {
+                    const maxLength = Number(input.getAttribute('maxlength')) || 11;
+                    input.value = input.value.replace(/\D/g, '').slice(0, maxLength);
+                });
+            });
+
+            document.querySelectorAll('input[step="0.01"], input[data-decimal-places="2"]').forEach((input) => {
+                input.addEventListener('input', () => {
+                    const originalValue = input.value;
+                    const originalPosition = input.selectionStart ?? originalValue.length;
+                    let value = originalValue.replace(/[^\d.]/g, '');
+                    const firstDotIndex = value.indexOf('.');
+
+                    if (firstDotIndex !== -1) {
+                        value = value.slice(0, firstDotIndex + 1)
+                            + value.slice(firstDotIndex + 1).replace(/\./g, '');
+
+                        const [whole, decimal = ''] = value.split('.');
+                        value = `${whole}.${decimal.slice(0, 2)}`;
+                    }
+
+                    if (value !== originalValue) {
+                        const removedBeforeCursor = originalValue
+                            .slice(0, originalPosition)
+                            .replace(/[\d.]/g, '')
+                            .length;
+                        const nextPosition = Math.max(0, originalPosition - removedBeforeCursor);
+
+                        input.value = value;
+
+                        if (input.type !== 'number') {
+                            input.setSelectionRange(
+                                Math.min(nextPosition, value.length),
+                                Math.min(nextPosition, value.length)
+                            );
+                        }
+                    }
+                });
+            });
+
+            if (document.body.classList.contains('role-salesclerk')) {
+                const moduleHeading = document.querySelector('.app-module-heading');
+                const sidebarLogo = document.querySelector('.sidebar img');
+
+                if (moduleHeading && sidebarLogo && !moduleHeading.querySelector('.salesclerk-top-logo')) {
+                    const logo = sidebarLogo.cloneNode(true);
+                    logo.classList.add('salesclerk-top-logo');
+                    logo.removeAttribute('width');
+                    logo.removeAttribute('height');
+                    moduleHeading.prepend(logo);
+                }
+            }
+
+            const backupStatus = document.querySelector('.app-backup-status');
+
+            if (backupStatus) {
+                const backupStatusText = backupStatus.querySelector('.app-backup-status-text');
+                const backupFolderReady = backupStatus.dataset.backupFolderReady === 'true';
+
+                const updateBackupStatus = () => {
+                    const browserOnline = navigator.onLine;
+                    const isReady = browserOnline && backupFolderReady;
+
+                    backupStatus.classList.toggle('is-online', isReady);
+                    backupStatus.classList.toggle('is-offline', !isReady);
+
+                    if (backupStatusText) {
+                        backupStatusText.textContent = isReady
+                            ? 'Online backup ready'
+                            : 'Offline backup only';
+                    }
+                };
+
+                updateBackupStatus();
+                window.addEventListener('online', updateBackupStatus);
+                window.addEventListener('offline', updateBackupStatus);
+            }
+
+            const timeElement = document.getElementById('appCurrentTime');
+            const dateElement = document.getElementById('appCurrentDate');
+
+            if (!timeElement || !dateElement) {
+                return;
+            }
+
+            const updateDateTime = () => {
+                const currentDate = new Date();
+
+                timeElement.textContent = currentDate.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true,
+                });
+
+                dateElement.textContent = currentDate.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                });
+            };
+
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+        });
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const modal = document.getElementById('userCreateModal');
+
+            if (!modal) {
+                return;
+            }
+
+            const openModal = () => {
+                modal.classList.add('is-open');
+                modal.setAttribute('aria-hidden', 'false');
+                modal.querySelector('input, select, button')?.focus();
+            };
+
+            const closeModal = () => {
+                modal.classList.remove('is-open');
+                modal.setAttribute('aria-hidden', 'true');
+            };
+
+            document.querySelectorAll('a, button').forEach((element) => {
+                if (element.textContent.trim().toLowerCase().includes('add user')) {
+                    element.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        openModal();
+                    });
+                }
+            });
+
+            modal.querySelectorAll('[data-close-user-modal]').forEach((button) => {
+                button.addEventListener('click', closeModal);
+            });
+
+            modal.addEventListener('click', (event) => {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+                    closeModal();
+                }
+            });
+        });
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const modal = document.getElementById('signoutConfirmModal');
+            const signoutForm = document.querySelector('.salesclerk-signout');
+            let confirmedSignout = false;
+
+            if (!modal || !signoutForm) {
+                return;
+            }
+
+            const openModal = () => {
+                modal.classList.add('is-open');
+                modal.setAttribute('aria-hidden', 'false');
+                modal.querySelector('[data-confirm-signout]')?.focus();
+            };
+
+            const closeModal = () => {
+                modal.classList.remove('is-open');
+                modal.setAttribute('aria-hidden', 'true');
+            };
+
+            signoutForm.addEventListener('submit', (event) => {
+                if (confirmedSignout) {
+                    return;
+                }
+
+                event.preventDefault();
+                openModal();
+            });
+
+            modal.querySelector('[data-cancel-signout]')?.addEventListener('click', closeModal);
+
+            modal.querySelector('[data-confirm-signout]')?.addEventListener('click', () => {
+                confirmedSignout = true;
+                signoutForm.submit();
+            });
+
+            modal.addEventListener('click', (event) => {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+                    closeModal();
+                }
+            });
+        });
+    </script>
+
+    <?php echo $__env->yieldPushContent('scripts'); ?>
 
 
 
@@ -1517,4 +2523,5 @@
 <?php endif; ?>
 
 </body>
-</html><?php /**PATH C:\Projects\IT12_project\resources\views/layouts/app.blade.php ENDPATH**/ ?>
+</html>
+<?php /**PATH C:\Projects\IT12_project\resources\views/layouts/app.blade.php ENDPATH**/ ?>

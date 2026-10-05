@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'online_backup' => [
+        'path' => env('ONLINE_BACKUP_PATH'),
+    ],
+
+    'database_tools' => [
+        'mysqldump_path' => env('MYSQLDUMP_PATH', 'mysqldump'),
+        'mysql_path' => env('MYSQL_PATH', 'mysql'),
+    ],
+
 ];

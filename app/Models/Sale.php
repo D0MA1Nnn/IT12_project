@@ -19,6 +19,7 @@ class Sale extends Model
         'total_amount',
         'status',
         'delivery_required',
+        'delivery_fee',
         'customer_name',
         'customer_contact_number',
         'delivery_address',
@@ -31,6 +32,7 @@ class Sale extends Model
             'sale_date' => 'datetime',
             'total_amount' => 'decimal:2',
             'delivery_required' => 'boolean',
+            'delivery_fee' => 'decimal:2',
         ];
     }
 

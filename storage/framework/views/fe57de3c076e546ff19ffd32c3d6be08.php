@@ -1,28 +1,24 @@
-@extends('layouts.app')
+<?php $__env->startSection('title', 'Categories'); ?>
 
-@section('title', 'Categories')
-
-@section('content')
+<?php $__env->startSection('content'); ?>
 
 <div class="tabs">
-    <a href="{{ route('products.index') }}">Products</a>
-    <a class="active" href="{{ route('categories.index') }}">Categories</a>
-    <a href="{{ route('units.index') }}">Units of Measure</a>
-    <a href="{{ route('inventory.index') }}">Inventory</a>
+    <a href="<?php echo e(route('products.index')); ?>">Products</a>
+    <a class="active" href="<?php echo e(route('categories.index')); ?>">Categories</a>
+    <a href="<?php echo e(route('units.index')); ?>">Units of Measure</a>
+    <a href="<?php echo e(route('inventory.index')); ?>">Inventory</a>
 </div>
 
 
-{{-- =========================================================
-     SEARCH / FILTER / ACTIONS
-========================================================= --}}
+
 
 <form
     method="GET"
-    action="{{ route('categories.index') }}"
+    action="<?php echo e(route('categories.index')); ?>"
     class="category-filter-bar"
 >
 
-    {{-- Search --}}
+    
     <div class="category-search-box">
 
         <svg
@@ -42,14 +38,14 @@
             type="text"
             name="search"
             class="category-filter-control category-search-input"
-            value="{{ request('search') }}"
+            value="<?php echo e(request('search')); ?>"
             placeholder="Search categories..."
         >
 
     </div>
 
 
-    {{-- Status --}}
+    
     <select
         name="status"
         class="category-filter-control category-filter-select"
@@ -58,14 +54,14 @@
 
         <option
             value="active"
-            @selected(request('status') === 'active')
+            <?php if(request('status') === 'active'): echo 'selected'; endif; ?>
         >
             Active
         </option>
 
         <option
             value="inactive"
-            @selected(request('status') === 'inactive')
+            <?php if(request('status') === 'inactive'): echo 'selected'; endif; ?>
         >
             Archived
         </option>
@@ -80,22 +76,22 @@
     </button>
 
 
-    @if(request()->filled('search') || request()->filled('status'))
+    <?php if(request()->filled('search') || request()->filled('status')): ?>
 
         <a
-            href="{{ route('categories.index') }}"
+            href="<?php echo e(route('categories.index')); ?>"
             class="category-clear-button"
         >
             Clear
         </a>
 
-    @endif
+    <?php endif; ?>
 
 
     <div class="category-filter-spacer"></div>
 
 
-    {{-- Add Category --}}
+    
     <button
         type="button"
         class="btn primary"
@@ -107,9 +103,7 @@
 </form>
 
 
-{{-- =========================================================
-     CATEGORY TABLE
-========================================================= --}}
+
 
 <div class="category-table-container">
 
@@ -125,31 +119,32 @@
 
         <tbody>
 
-            @forelse($categories as $category)
+            <?php $__empty_1 = true; $__currentLoopData = $categories; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $category): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
 
                 <tr>
 
                     <td>
                         <strong>
-                            {{ $category->category_name }}
+                            <?php echo e($category->category_name); ?>
+
                         </strong>
                     </td>
 
                     <td>
 
-                        @if($category->is_active)
+                        <?php if($category->is_active): ?>
 
                             <span class="category-status active">
                                 Active
                             </span>
 
-                        @else
+                        <?php else: ?>
 
                             <span class="category-status archived">
                                 Archived
                             </span>
 
-                        @endif
+                        <?php endif; ?>
 
                     </td>
 
@@ -157,30 +152,30 @@
 
                         <div class="actions">
 
-                            {{-- Edit --}}
+                            
                             <button
                                 type="button"
                                 class="btn light small category-edit-button"
-                                data-id="{{ $category->category_id }}"
-                                data-name="{{ $category->category_name }}"
-                                data-update-url="{{ route('categories.update', $category) }}"
+                                data-id="<?php echo e($category->category_id); ?>"
+                                data-name="<?php echo e($category->category_name); ?>"
+                                data-update-url="<?php echo e(route('categories.update', $category)); ?>"
                             >
                                 Edit
                             </button>
 
 
-                            {{-- Archive --}}
-                            @if($category->is_active)
+                            
+                            <?php if($category->is_active): ?>
 
                                 <form
                                     method="POST"
-                                    action="{{ route('categories.deactivate', $category) }}"
+                                    action="<?php echo e(route('categories.deactivate', $category)); ?>"
                                     class="category-status-form"
-                                    data-category="{{ $category->category_name }}"
+                                    data-category="<?php echo e($category->category_name); ?>"
                                     data-action="archive"
                                 >
-                                    @csrf
-                                    @method('PATCH')
+                                    <?php echo csrf_field(); ?>
+                                    <?php echo method_field('PATCH'); ?>
 
                                     <button
                                         type="button"
@@ -191,18 +186,18 @@
 
                                 </form>
 
-                            {{-- Restore --}}
-                            @else
+                            
+                            <?php else: ?>
 
                                 <form
                                     method="POST"
-                                    action="{{ route('categories.activate', $category) }}"
+                                    action="<?php echo e(route('categories.activate', $category)); ?>"
                                     class="category-status-form"
-                                    data-category="{{ $category->category_name }}"
+                                    data-category="<?php echo e($category->category_name); ?>"
                                     data-action="restore"
                                 >
-                                    @csrf
-                                    @method('PATCH')
+                                    <?php echo csrf_field(); ?>
+                                    <?php echo method_field('PATCH'); ?>
 
                                     <button
                                         type="button"
@@ -213,7 +208,7 @@
 
                                 </form>
 
-                            @endif
+                            <?php endif; ?>
 
                         </div>
 
@@ -221,7 +216,7 @@
 
                 </tr>
 
-            @empty
+            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
 
                 <tr>
                     <td
@@ -232,7 +227,7 @@
                     </td>
                 </tr>
 
-            @endforelse
+            <?php endif; ?>
 
         </tbody>
 
@@ -241,62 +236,61 @@
 </div>
 
 
-{{-- =========================================================
-     PAGINATION
-========================================================= --}}
 
-@if(method_exists($categories, 'hasPages') && $categories->hasPages())
-    @php
+
+<?php if(method_exists($categories, 'hasPages') && $categories->hasPages()): ?>
+    <?php
         $currentPage = $categories->currentPage();
         $lastPage = $categories->lastPage();
         $startPage = max(1, min($currentPage - 1, $lastPage - 2));
         $endPage = min($lastPage, $startPage + 2);
-    @endphp
+    ?>
 
     <div class="category-pagination">
 
         <div class="pagination-info">
 
             Showing
-            {{ $categories->firstItem() }}
+            <?php echo e($categories->firstItem()); ?>
+
             to
-            {{ $categories->lastItem() }}
+            <?php echo e($categories->lastItem()); ?>
+
             of
-            {{ $categories->total() }}
+            <?php echo e($categories->total()); ?>
+
             categories
 
         </div>
 
         <div class="compact-pagination">
-            @if ($categories->onFirstPage())
+            <?php if($categories->onFirstPage()): ?>
                 <span class="page-link disabled">&lsaquo; Previous</span>
-            @else
-                <a class="page-link" href="{{ $categories->previousPageUrl() }}">&lsaquo; Previous</a>
-            @endif
+            <?php else: ?>
+                <a class="page-link" href="<?php echo e($categories->previousPageUrl()); ?>">&lsaquo; Previous</a>
+            <?php endif; ?>
 
-            @for ($page = $startPage; $page <= $endPage; $page++)
-                @if ($page === $currentPage)
-                    <span class="page-link active">{{ $page }}</span>
-                @else
-                    <a class="page-link" href="{{ $categories->url($page) }}">{{ $page }}</a>
-                @endif
-            @endfor
+            <?php for($page = $startPage; $page <= $endPage; $page++): ?>
+                <?php if($page === $currentPage): ?>
+                    <span class="page-link active"><?php echo e($page); ?></span>
+                <?php else: ?>
+                    <a class="page-link" href="<?php echo e($categories->url($page)); ?>"><?php echo e($page); ?></a>
+                <?php endif; ?>
+            <?php endfor; ?>
 
-            @if ($categories->hasMorePages())
-                <a class="page-link" href="{{ $categories->nextPageUrl() }}">Next &rsaquo;</a>
-            @else
+            <?php if($categories->hasMorePages()): ?>
+                <a class="page-link" href="<?php echo e($categories->nextPageUrl()); ?>">Next &rsaquo;</a>
+            <?php else: ?>
                 <span class="page-link disabled">Next &rsaquo;</span>
-            @endif
+            <?php endif; ?>
         </div>
 
     </div>
 
-@endif
+<?php endif; ?>
 
 
-{{-- =========================================================
-     ADD CATEGORY MODAL
-========================================================= --}}
+
 
 <div
     class="category-modal-overlay"
@@ -338,11 +332,11 @@
 
         <form
             method="POST"
-            action="{{ route('categories.store') }}"
+            action="<?php echo e(route('categories.store')); ?>"
             id="addCategoryForm"
         >
 
-            @csrf
+            <?php echo csrf_field(); ?>
 
 
             <div class="field">
@@ -356,7 +350,7 @@
                     type="text"
                     name="category_name"
                     class="input"
-                    value="{{ old('category_name') }}"
+                    value="<?php echo e(old('category_name')); ?>"
                     placeholder="Enter category name"
                     maxlength="100"
                     required
@@ -391,9 +385,7 @@
 </div>
 
 
-{{-- =========================================================
-     EDIT CATEGORY MODAL
-========================================================= --}}
+
 
 <div
     class="category-modal-overlay"
@@ -431,8 +423,8 @@
             action=""
             id="editCategoryForm"
         >
-            @csrf
-            @method('PUT')
+            <?php echo csrf_field(); ?>
+            <?php echo method_field('PUT'); ?>
 
             <div class="field">
                 <label for="edit_category_name">
@@ -471,9 +463,7 @@
 </div>
 
 
-{{-- =========================================================
-     ARCHIVE / RESTORE CONFIRMATION MODAL
-========================================================= --}}
+
 
 <div
     class="category-modal-overlay"
@@ -1044,7 +1034,7 @@ body {
 </style>
 
 
-@push('scripts')
+<?php $__env->startPush('scripts'); ?>
 
 <script>
 
@@ -1134,11 +1124,11 @@ document.addEventListener('DOMContentLoaded', function () {
     |--------------------------------------------------------------------------
     */
 
-    @if($errors->has('category_name'))
+    <?php if($errors->has('category_name')): ?>
 
         openAddModal();
 
-    @endif
+    <?php endif; ?>
 
 
 
@@ -1475,6 +1465,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
 </script>
 
-@endpush
+<?php $__env->stopPush(); ?>
 
-@endsection
+<?php $__env->stopSection(); ?>
+
+<?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\Projects\IT12_project\resources\views/categories/index.blade.php ENDPATH**/ ?>

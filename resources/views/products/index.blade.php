@@ -211,6 +211,8 @@
                                 data-product-name="{{ $product->product_name }}"
                                 data-store-url="{{ route('products.units.store', $product) }}"
                                 data-base-unit-name="{{ $baseUnit?->unit?->unit_name ?? 'base unit' }}"
+                                data-base-selling-price="{{ $baseUnit?->selling_price ?? 0 }}"
+                                data-base-purchase-cost="{{ $baseUnit?->purchase_cost ?? 0 }}"
                                 data-units='@json($unitOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)'
                             >
                                 Unit
@@ -263,6 +265,12 @@
 
 
     @if($products->hasPages())
+        @php
+            $currentPage = $products->currentPage();
+            $lastPage = $products->lastPage();
+            $startPage = max(1, min($currentPage - 1, $lastPage - 2));
+            $endPage = min($lastPage, $startPage + 2);
+        @endphp
 
         <div class="pagination-wrapper">
 
@@ -283,8 +291,8 @@
                     <a class="page-link" href="{{ $products->previousPageUrl() }}">&lsaquo; Previous</a>
                 @endif
 
-                @for ($page = 1; $page <= $products->lastPage(); $page++)
-                    @if ($page === $products->currentPage())
+                @for ($page = $startPage; $page <= $endPage; $page++)
+                    @if ($page === $currentPage)
                         <span class="page-link active">{{ $page }}</span>
                     @else
                         <a class="page-link" href="{{ $products->url($page) }}">{{ $page }}</a>
@@ -632,10 +640,6 @@ PRODUCT UNIT MANAGEMENT MODAL
                 <h2 id="unitsModalTitle">
                     Product Units
                 </h2>
-
-                <p>
-                    View current units and add another unit option.
-                </p>
             </div>
 
             <button
@@ -680,9 +684,7 @@ PRODUCT UNIT MANAGEMENT MODAL
                     </select>
                 </div>
 
-                <div class="field">
-                    <label>Easy Conversion</label>
-
+                <div class="field conversion-field">
                     <input
                         type="hidden"
                         name="conversion_factor"
@@ -718,36 +720,40 @@ PRODUCT UNIT MANAGEMENT MODAL
                         <span id="conversionBaseUnitName">base unit</span>
                     </div>
 
-                    <small class="conversion-preview" id="conversionPreview">
-                        1 selected unit = 1 base unit
-                    </small>
+                    <small
+                        class="conversion-error"
+                        id="conversionError"
+                        hidden
+                    ></small>
                 </div>
 
-                <div class="field">
+                <div class="field unit-auto-price-field">
                     <label>Selling Price</label>
 
                     <input
                         class="input"
-                        type="number"
-                        name="selling_price"
-                        min="0"
-                        step="0.01"
+                        type="text"
+                        id="unitSellingPrice"
+                        value="₱0.00"
+                        readonly
                         required
                     >
-                </div>
-
-                <div class="field">
-                    <label>Purchase Cost</label>
 
                     <input
-                        class="input"
-                        type="number"
-                        name="purchase_cost"
-                        min="0"
-                        step="0.01"
-                        required
+                        type="hidden"
+                        name="selling_price"
+                        id="unitSellingPriceValue"
+                        value="0"
                     >
+
                 </div>
+
+                <input
+                    type="hidden"
+                    name="purchase_cost"
+                    id="unitPurchaseCost"
+                    value="0"
+                >
 
             </div>
 
@@ -974,22 +980,22 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 34px;
-    height: 34px;
-    padding: 0 10px;
-    border: 1px solid #dbe3ef;
-    border-radius: 8px;
-    background: #fff;
-    color: #334155;
-    font-size: 13px;
-    font-weight: 700;
+    min-width: 44px;
+    min-height: 40px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 10px;
+    background: #eef2f8;
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 800;
     text-decoration: none;
     line-height: 1;
 }
 
 .compact-pagination .page-link:hover { background: #f1f5f9; }
-.compact-pagination .page-link.active { background: #2563eb; border-color: #2563eb; color: #fff; }
-.compact-pagination .page-link.disabled { color: #94a3b8; background: #f8fafc; cursor: default; }
+.compact-pagination .page-link.active { background: #2468ee; color: #fff; }
+.compact-pagination .page-link.disabled { color: #0f172a; background: #eef2f8; cursor: default; opacity: .45; }
 
 
 /* MODAL */
@@ -1132,6 +1138,15 @@ body {
     gap: 16px;
 }
 
+#unitsModal .system-modal {
+    overflow-x: hidden;
+}
+
+#unitsModal .modal-grid {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+}
+
 .system-modal .field {
     margin-bottom: 16px;
 }
@@ -1266,13 +1281,27 @@ body {
 
 .conversion-builder {
     display: grid;
-    grid-template-columns: 90px 1fr auto 90px 1fr;
+    grid-template-columns: 74px 50px 12px 74px 44px;
     gap: 8px;
     align-items: center;
+    height: 44px;
 }
 
 .conversion-builder .input {
+    height: 44px;
+    padding: 0 10px;
     text-align: center;
+    -moz-appearance: textfield;
+}
+
+.conversion-field {
+    padding-top: 20px;
+}
+
+.conversion-builder .input::-webkit-outer-spin-button,
+.conversion-builder .input::-webkit-inner-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
 }
 
 .conversion-builder span,
@@ -1280,14 +1309,31 @@ body {
     color: #0f172a;
     font-size: 12px;
     font-weight: 800;
+    line-height: 1.15;
 }
 
-.conversion-preview {
+.conversion-builder strong {
+    text-align: center;
+}
+
+.conversion-error {
     display: block;
     margin-top: 8px;
-    color: #64748b;
+    color: #dc2626;
     font-size: 11px;
+    font-weight: 700;
     line-height: 1.4;
+}
+
+.unit-auto-price-field {
+    grid-column: 1 / -1;
+}
+
+.unit-auto-price-field .input[readonly] {
+    background: #f8fafc;
+    color: #0f172a;
+    font-weight: 800;
+    cursor: default;
 }
 
 .product-unit-view-empty {
@@ -1328,6 +1374,10 @@ body {
 
     .modal-grid {
         grid-template-columns: 1fr;
+    }
+
+    .conversion-field {
+        padding-top: 0;
     }
 
     .pagination-wrapper {
@@ -1668,11 +1718,26 @@ document.addEventListener('DOMContentLoaded', function () {
     const conversionBaseUnitName =
         document.getElementById('conversionBaseUnitName');
 
-    const conversionPreview =
-        document.getElementById('conversionPreview');
+    const conversionError =
+        document.getElementById('conversionError');
+
+    const unitSellingPrice =
+        document.getElementById('unitSellingPrice');
+
+    const unitSellingPriceValue =
+        document.getElementById('unitSellingPriceValue');
+
+    const unitPurchaseCost =
+        document.getElementById('unitPurchaseCost');
 
     let currentBaseUnitName =
         'base unit';
+
+    let currentBaseSellingPrice =
+        0;
+
+    let currentBasePurchaseCost =
+        0;
 
     const originalUnitOptions =
         Array.from(unitOptionSelect.options).map(option => ({
@@ -1688,6 +1753,31 @@ document.addEventListener('DOMContentLoaded', function () {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
+    }
+
+    function setAutomaticUnitPrices(factor = 0) {
+        const sellingPrice =
+            Number((currentBaseSellingPrice * factor).toFixed(2));
+
+        const purchaseCost =
+            Number((currentBasePurchaseCost * factor).toFixed(2));
+
+        unitSellingPrice.value =
+            peso(sellingPrice);
+
+        unitSellingPriceValue.value =
+            sellingPrice.toFixed(2);
+
+        unitPurchaseCost.value =
+            purchaseCost.toFixed(2);
+    }
+
+    function setConversionError(message = '') {
+        conversionError.textContent =
+            message;
+
+        conversionError.hidden =
+            message === '';
     }
 
     function escapeHtml(value) {
@@ -1748,28 +1838,17 @@ document.addEventListener('DOMContentLoaded', function () {
             unitConversionFactor.value = '1';
             conversionSelectedUnitName.textContent = 'selected unit';
             conversionBaseUnitName.textContent = currentBaseUnitName;
-            conversionPreview.textContent = 'Choose a unit first.';
+            setConversionError();
+            setAutomaticUnitPrices();
 
             return;
         }
 
         const selectedQty =
-            Math.max(0.001, Number(conversionSelectedQty.value) || 1);
+            Number(conversionSelectedQty.value);
 
         const baseQty =
-            Math.max(0.001, Number(conversionBaseQty.value) || 1);
-
-        const factor =
-            baseQty / selectedQty;
-
-        conversionSelectedQty.value =
-            selectedQty;
-
-        conversionBaseQty.value =
-            baseQty;
-
-        unitConversionFactor.value =
-            factor.toFixed(6);
+            Number(conversionBaseQty.value);
 
         conversionSelectedUnitName.textContent =
             selectedUnitName();
@@ -1777,8 +1856,27 @@ document.addEventListener('DOMContentLoaded', function () {
         conversionBaseUnitName.textContent =
             currentBaseUnitName;
 
-        conversionPreview.textContent =
-            `System will save: 1 ${selectedUnitName()} = ${Number(factor.toFixed(6))} ${currentBaseUnitName}`;
+        if (
+            !conversionSelectedQty.value ||
+            !conversionBaseQty.value ||
+            selectedQty <= 0 ||
+            baseQty <= 0
+        ) {
+            unitConversionFactor.value = '';
+            setConversionError();
+            setAutomaticUnitPrices();
+
+            return;
+        }
+
+        const factor =
+            baseQty / selectedQty;
+
+        unitConversionFactor.value =
+            factor.toFixed(6);
+
+        setAutomaticUnitPrices(factor);
+        setConversionError();
     }
 
     function refreshUnitDropdown(existingUnits) {
@@ -1840,6 +1938,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     currentBaseUnitName =
                         button.dataset.baseUnitName || 'base unit';
+
+                    currentBaseSellingPrice =
+                        Number(button.dataset.baseSellingPrice || 0);
+
+                    currentBasePurchaseCost =
+                        Number(button.dataset.basePurchaseCost || 0);
 
                     const existingUnits =
                         JSON.parse(button.dataset.units || '[]');
@@ -1904,6 +2008,15 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             updateConversionFactor();
+
+            if (!unitConversionFactor.value) {
+                event.preventDefault();
+                setConversionError(
+                    'Please enter valid conversion amounts before saving.'
+                );
+
+                return;
+            }
 
             saveUnitButton.disabled = true;
 

@@ -236,7 +236,7 @@ class SupplierController extends Controller
             'contact_number' => [
                 'nullable',
                 'string',
-                'max:50',
+                'regex:/^\d{11}$/',
             ],
 
             'email' => [
@@ -260,6 +260,8 @@ class SupplierController extends Controller
                 'integer',
                 'exists:products,product_id',
             ],
+        ], [
+            'contact_number.regex' => 'Contact number must contain exactly 11 numbers.',
         ]);
     }
 

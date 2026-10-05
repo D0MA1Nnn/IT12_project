@@ -395,22 +395,23 @@
     }
 
     .supplier-page-link {
-        min-width: 34px;
-        height: 34px;
+        min-width: 44px;
+        min-height: 40px;
 
         display: inline-flex;
         align-items: center;
         justify-content: center;
 
-        padding: 0 10px;
+        padding: 0 14px;
 
-        border: 1px solid #dfe5ee;
-        border-radius: 6px;
+        border: 0;
+        border-radius: 10px;
 
-        background: #fff;
-        color: #354052;
+        background: #eef2f8;
+        color: #0f172a;
 
         font-size: 12px;
+        font-weight: 800;
         text-decoration: none;
     }
 
@@ -420,9 +421,7 @@
 
     .supplier-page-link.active {
         background: #2468ee;
-        border-color: #2468ee;
         color: #fff;
-        font-weight: 700;
     }
 
     .supplier-page-link.disabled {
@@ -855,6 +854,12 @@
      ========================================================= --}}
 
 @if(method_exists($suppliers, 'hasPages') && $suppliers->hasPages())
+    @php
+        $currentPage = $suppliers->currentPage();
+        $lastPage = $suppliers->lastPage();
+        $startPage = max(1, min($currentPage - 1, $lastPage - 2));
+        $endPage = min($lastPage, $startPage + 2);
+    @endphp
 
     <div class="supplier-pagination">
 
@@ -899,15 +904,11 @@
 
 
             {{-- PAGE NUMBERS --}}
-            @for(
-                $page = 1;
-                $page <= $suppliers->lastPage();
-                $page++
-            )
+            @for($page = $startPage; $page <= $endPage; $page++)
 
                 <a
                     href="{{ $suppliers->url($page) }}"
-                    class="supplier-page-link {{ $page === $suppliers->currentPage() ? 'active' : '' }}"
+                    class="supplier-page-link {{ $page === $currentPage ? 'active' : '' }}"
                 >
                     {{ $page }}
                 </a>
@@ -1041,7 +1042,11 @@
                             class="input"
                             value="{{ old('contact_number') }}"
                             placeholder="Enter contact number"
-                            maxlength="50"
+                            maxlength="11"
+                            minlength="11"
+                            inputmode="numeric"
+                            pattern="\d{11}"
+                            title="Contact number must be exactly 11 digits."
                         >
 
                     </div>
@@ -1242,7 +1247,11 @@
                             name="contact_number"
                             id="editSupplierContactNumber"
                             class="input"
-                            maxlength="50"
+                            maxlength="11"
+                            minlength="11"
+                            inputmode="numeric"
+                            pattern="\d{11}"
+                            title="Contact number must be exactly 11 digits."
                         >
 
                     </div>

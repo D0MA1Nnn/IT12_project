@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\Product;
 use App\Models\ProductUnit;
-use App\Models\UnitOfMeasure;
 use Illuminate\Http\Request;
 
 class ProductUnitController extends Controller
@@ -21,18 +20,6 @@ class ProductUnitController extends Controller
             'unit_id' => [
                 'required',
                 'exists:units_of_measure,unit_id',
-            ],
-
-            'selling_price' => [
-                'required',
-                'numeric',
-                'min:0',
-            ],
-
-            'purchase_cost' => [
-                'required',
-                'numeric',
-                'min:0',
             ],
 
             'conversion_factor' => [
@@ -53,11 +40,25 @@ class ProductUnitController extends Controller
             );
         }
 
+        $baseUnit = $product->productUnits()
+            ->where('is_base_unit', true)
+            ->first()
+            ?? $product->productUnits()->first();
+
+        if (! $baseUnit) {
+            return back()->with(
+                'error',
+                'Base unit is missing for this product.'
+            );
+        }
+
+        $conversionFactor = (float) $data['conversion_factor'];
+
         $productUnit = $product->productUnits()->create([
             'unit_id' => $data['unit_id'],
-            'selling_price' => $data['selling_price'],
-            'purchase_cost' => $data['purchase_cost'],
-            'conversion_factor' => $data['conversion_factor'],
+            'selling_price' => round((float) $baseUnit->selling_price * $conversionFactor, 2),
+            'purchase_cost' => round((float) $baseUnit->purchase_cost * $conversionFactor, 2),
+            'conversion_factor' => $conversionFactor,
             'is_base_unit' => false,
             'is_active' => true,
         ]);
@@ -135,7 +136,7 @@ class ProductUnitController extends Controller
         }
 
         $productUnit->update([
-            'is_active' => !$productUnit->is_active,
+            'is_active' => ! $productUnit->is_active,
         ]);
 
         $this->log(
@@ -161,8 +162,7 @@ class ProductUnitController extends Controller
             'user_id' => auth()->id(),
             'module' => 'PRODUCT',
             'action' => $action,
-            'description' =>
-                "{$action} unit option for {$product->product_name}.",
+            'description' => "{$action} unit option for {$product->product_name}.",
             'reference_type' => 'ProductUnit',
             'reference_id' => $productUnit->product_unit_id,
         ]);

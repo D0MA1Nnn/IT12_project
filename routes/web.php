@@ -278,9 +278,19 @@ Route::middleware('auth')->group(function () {
         )->name('backup.create');
 
         Route::post(
+            '/backup/google-drive/create',
+            [BackupController::class, 'createGoogleDrive']
+        )->name('backup.google-drive.create');
+
+        Route::post(
             '/backup/restore',
             [BackupController::class, 'restore']
         )->name('backup.restore');
+
+        Route::post(
+            '/backup/google-drive/restore',
+            [BackupController::class, 'restoreGoogleDrive']
+        )->name('backup.google-drive.restore');
 
     });
 

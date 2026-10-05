@@ -49,10 +49,6 @@
                     Products
                 </h2>
 
-                <div class="muted">
-                    Each product appears once. Select the selling unit requested by the customer.
-                </div>
-
             </div>
 
 
@@ -331,11 +327,6 @@
                 Current Order
             </h2>
 
-            <div class="muted cashier-order-description">
-                Pending deliveries do not block the next customer.
-                Stock is reserved when the sale is saved.
-            </div>
-
 
             <div id="order">
 
@@ -370,9 +361,10 @@
 
                 <input
                     class="input"
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputmode="decimal"
+                    pattern="^\d+(\.\d{1,2})?$"
+                    data-decimal-places="2"
                     name="payment"
                     id="payment"
                     value="{{ old('payment') }}"
@@ -427,6 +419,21 @@
                 id="deliveryFields"
             >
 
+                <div class="field cashier-delivery-fee">
+                    <label>Delivery Fee</label>
+                    <input
+                        class="input"
+                        type="text"
+                        inputmode="decimal"
+                        pattern="^\d+(\.\d{1,2})?$"
+                        data-decimal-places="2"
+                        name="delivery_fee"
+                        id="deliveryFee"
+                        value="{{ old('delivery_fee') }}"
+                        placeholder="0.00"
+                    >
+                </div>
+
                 <div class="field">
                     <label>Customer Name</label>
                     <input
@@ -436,6 +443,7 @@
                         id="customerName"
                         value="{{ old('customer_name') }}"
                         autocomplete="name"
+                        maxlength="30"
                     >
                 </div>
 
@@ -448,6 +456,12 @@
                         id="customerContactNumber"
                         value="{{ old('customer_contact_number') }}"
                         autocomplete="tel"
+                        maxlength="11"
+                        minlength="11"
+                        inputmode="numeric"
+                        pattern="09\d{9}"
+                        data-digits-only
+                        title="Contact number must start with 09 and be exactly 11 digits."
                     >
                 </div>
 
@@ -457,6 +471,7 @@
                         name="delivery_address"
                         id="deliveryAddress"
                         rows="3"
+                        maxlength="60"
                     >{{ old('delivery_address') }}</textarea>
                 </div>
 
@@ -510,17 +525,13 @@
                     Lumber & Construction Supplies
                 </div>
 
-                <h2>
-                    Transaction Successfully Completed
-                </h2>
-
-                <div class="muted">
-                    @if($completedSale)
-                        Receipt for SALE-{{ str_pad($completedSale->sale_id, 4, '0', STR_PAD_LEFT) }}
-                    @else
-                        Receipt details will appear after saving.
-                    @endif
+                <div class="sale-receipt-shop-address">
+                    km 5, encabo st, guadalupe village, matina crossing, davao city
                 </div>
+
+                <h2>
+                    Sales Invoice
+                </h2>
 
             </div>
 
@@ -530,19 +541,24 @@
         @if($completedSale)
 
             <div class="sale-receipt-meta">
-                <div>
-                    <span>Date / Time</span>
-                    <strong>{{ $completedSale->sale_date->format('m/d/Y g:i A') }}</strong>
-                </div>
+                <span>Invoice No.</span>
+                <strong>SALE-{{ str_pad($completedSale->sale_id, 4, '0', STR_PAD_LEFT) }}</strong>
 
-                <div>
-                    <span>Recorded By</span>
-                    <strong>{{ $completedSale->user?->username ?? '—' }}</strong>
-                </div>
+                <span>Date / Time</span>
+                <strong>{{ $completedSale->sale_date->format('m/d/Y g:i A') }}</strong>
+
             </div>
 
 
             <div id="modalItems">
+                <div class="sale-modal-item sale-modal-item-header">
+                    <span>Qty</span>
+                    <span>Unit</span>
+                    <span>Name</span>
+                    <span>Price</span>
+                    <span>Amount</span>
+                </div>
+
                 @foreach($completedSale->items as $item)
                     @php
                         $productUnit = $item->productUnit;
@@ -552,16 +568,10 @@
                     @endphp
 
                     <div class="sale-modal-item">
-                        <div>
-                            <strong>{{ $product?->product_name ?? 'Product' }}</strong>
-                            <div class="muted">
-                                {{ $quantity }}
-                                {{ $unit?->unit_name ?? 'Unit' }}
-                                ×
-                                ₱{{ number_format((float) $item->unit_price, 2) }}
-                            </div>
-                        </div>
-
+                        <span>{{ $quantity }}</span>
+                        <span>{{ $unit?->unit_name ?? 'Unit' }}</span>
+                        <strong>{{ $product?->product_name ?? 'Product' }}</strong>
+                        <span>₱{{ number_format((float) $item->unit_price, 2) }}</span>
                         <strong>₱{{ number_format((float) $item->subtotal, 2) }}</strong>
                     </div>
                 @endforeach
@@ -569,6 +579,13 @@
 
 
             <div class="sale-summary">
+
+                @if($completedSale->delivery_required)
+                    <div>
+                        <span>Delivery Fee</span>
+                        <strong>₱{{ number_format((float) $completedSale->delivery_fee, 2) }}</strong>
+                    </div>
+                @endif
 
                 <div>
                     <span>Total</span>
@@ -636,6 +653,39 @@
 
     </div>
 
+</div>
+
+<div
+    id="cashierNoticeModal"
+    class="cashier-notice-modal"
+    aria-hidden="true"
+>
+    <div
+        class="cashier-notice-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cashierNoticeTitle"
+    >
+        <div class="cashier-notice-icon">
+            !
+        </div>
+
+        <h3 id="cashierNoticeTitle">
+            Please check the order
+        </h3>
+
+        <p id="cashierNoticeMessage">
+            Add at least one product to the order.
+        </p>
+
+        <button
+            type="button"
+            class="btn primary"
+            id="cashierNoticeOk"
+        >
+            OK
+        </button>
+    </div>
 </div>
 
 
@@ -896,12 +946,20 @@
     .cashier-order-card {
         position: sticky;
         top: 16px;
+        max-height: calc(100vh - 170px);
+        overflow-y: auto;
+        padding-right: 22px;
     }
 
 
-    .cashier-order-description {
-        margin-bottom: 18px;
-        line-height: 1.5;
+    .cashier-order-card::-webkit-scrollbar {
+        width: 7px;
+    }
+
+
+    .cashier-order-card::-webkit-scrollbar-thumb {
+        border-radius: 999px;
+        background: #cbd5e1;
     }
 
 
@@ -1044,6 +1102,11 @@
     }
 
 
+    .cashier-delivery-fee {
+        grid-column: 1 / -1;
+    }
+
+
     .cashier-delivery-fields textarea {
         width: 100%;
         resize: vertical;
@@ -1081,6 +1144,63 @@
         display: flex;
     }
 
+    .cashier-notice-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(8, 18, 34, .58);
+        backdrop-filter: blur(2px);
+    }
+
+
+    .cashier-notice-modal.open {
+        display: flex;
+    }
+
+
+    .cashier-notice-card {
+        width: min(390px, 100%);
+        padding: 28px;
+        border-radius: 16px;
+        background: #ffffff;
+        text-align: center;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, .25);
+    }
+
+
+    .cashier-notice-icon {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 16px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #d97706;
+        background: #fff7ed;
+        font-size: 24px;
+        font-weight: 900;
+    }
+
+
+    .cashier-notice-card h3 {
+        margin: 0 0 8px;
+        color: #0f172a;
+        font-size: 21px;
+    }
+
+
+    .cashier-notice-card p {
+        margin: 0 0 22px;
+        color: #64748b;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
 
     .sale-modal-card {
         width: min(430px, 100%);
@@ -1103,33 +1223,41 @@
         gap: 18px;
 
         padding: 22px 24px 18px;
-
-        border-bottom:
-            1px dashed #cbd5e1;
     }
 
 
     .sale-receipt-store {
         color: #0f172a;
-        font-size: 15px;
+        font-size: 17px;
         font-weight: 900;
-        letter-spacing: .08em;
+        letter-spacing: .10em;
         text-transform: uppercase;
     }
 
 
     .sale-receipt-store-subtitle {
         margin-top: 2px;
-        color: #64748b;
-        font-size: 11px;
+        color: #0f172a;
+        font-size: 12px;
         font-weight: 700;
         letter-spacing: .03em;
-        text-transform: uppercase;
+    }
+
+
+    .sale-receipt-shop-address {
+        width: min(320px, 100%);
+        margin-top: 6px;
+        color: #0f172a;
+        font-size: 11px;
+        font-weight: 400;
+        line-height: 1.4;
     }
 
 
     .sale-modal-head h2 {
         margin: 14px 0 4px 0;
+        padding-top: 14px;
+        border-top: 1px dashed #cbd5e1;
         font-size: 20px;
     }
 
@@ -1150,42 +1278,67 @@
         max-height: 260px;
         overflow-y: auto;
 
-        padding: 10px 24px;
+        padding: 10px 24px 4px;
     }
 
 
     .sale-modal-item {
-        display: flex;
-        justify-content: space-between;
-        gap: 14px;
+        display: grid;
+        grid-template-columns: 38px 62px minmax(0, 1fr) 70px 78px;
+        gap: 8px;
+        align-items: start;
 
-        padding: 13px 0;
+        padding: 12px 0;
 
         border-bottom:
             1px dashed #d8dee8;
+
+        font-size: 12px;
+    }
+
+
+    .sale-modal-item > :nth-child(4),
+    .sale-modal-item > :nth-child(5) {
+        text-align: right;
+    }
+
+
+    .sale-modal-item-header {
+        padding: 8px 0;
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+        border-top: 1px solid #e5e7eb;
+        border-bottom: 1px solid #e5e7eb;
     }
 
     .sale-receipt-meta {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-        padding: 16px 24px 8px;
-    }
-
-
-    .sale-receipt-meta > div {
-        padding: 12px;
-        border: 1px dashed #d8dee8;
-        border-radius: 8px;
-        background: #fbfdff;
+        grid-template-columns: 110px minmax(0, 1fr);
+        gap: 5px 12px;
+        margin: 0 24px 12px;
+        color: #0f172a;
     }
 
 
     .sale-receipt-meta span {
-        display: block;
-        margin-bottom: 4px;
-        color: #718096;
+        padding: 0;
+        border: 0;
+        color: #0f172a;
         font-size: 12px;
+        font-weight: 400;
+        background: transparent;
+    }
+
+
+    .sale-receipt-meta strong {
+        padding: 0;
+        border: 0;
+        color: #0f172a;
+        font-size: 13px;
+        font-weight: 400;
     }
 
 
@@ -1211,11 +1364,12 @@
         display: block;
         margin-bottom: 6px;
         text-transform: uppercase;
+        font-weight: 400;
     }
 
 
     .sale-delivery-summary span {
-        font-weight: 800;
+        font-weight: 400;
     }
 
 
@@ -1241,7 +1395,7 @@
 
 
     .sale-green {
-        color: #11a651;
+        color: #0f172a;
     }
 
 
@@ -1258,25 +1412,147 @@
 
     @media print {
 
+        @page {
+            margin: 0;
+        }
+
+        html,
+        body {
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: #ffffff !important;
+        }
+
+        body * {
+            visibility: hidden !important;
+        }
+
+        .shell,
+        .main {
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: #ffffff !important;
+        }
+
         .sidebar,
+        .app-date-time,
+        .app-backup-status,
+        .app-module-heading,
         .sales-module-tabs,
         .cashier-grid,
         .sale-modal-close,
         .sale-modal-actions {
             display: none !important;
+            visibility: hidden !important;
         }
 
         .sale-modal {
-            position: static;
+            position: static !important;
             display: block !important;
-            padding: 0;
-            background: #ffffff;
+            width: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 10mm !important;
+            background: #ffffff !important;
+            visibility: visible !important;
+        }
+
+        .sale-modal *,
+        .sale-modal-card {
+            visibility: visible !important;
         }
 
         .sale-modal-card {
-            width: 100%;
-            box-shadow: none;
-            border: 1px solid #e5e7eb;
+            width: 82mm !important;
+            max-width: 82mm !important;
+            margin: 0 auto !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            color: #111827 !important;
+            font-size: 12px !important;
+        }
+
+        .sale-modal-head {
+            display: block !important;
+            padding: 12px 0 10px !important;
+            text-align: center !important;
+        }
+
+        .sale-receipt-store {
+            font-size: 18px !important;
+        }
+
+        .sale-receipt-store-subtitle {
+            font-size: 12px !important;
+            color: #0f172a !important;
+        }
+
+        .sale-receipt-shop-address {
+            width: 100% !important;
+            margin: 5px auto 0 !important;
+            color: #0f172a !important;
+            font-size: 10px !important;
+            font-weight: 400 !important;
+            line-height: 1.35 !important;
+            text-align: center !important;
+        }
+
+        .sale-modal-head h2 {
+            margin: 14px 0 0 !important;
+            padding-top: 10px !important;
+            border-top: 1px dashed #cbd5e1 !important;
+            font-size: 16px !important;
+        }
+
+        .sale-receipt-meta {
+            grid-template-columns: 75px minmax(0, 1fr) !important;
+            gap: 3px 8px !important;
+            margin: 6px 0 8px !important;
+            border: 0 !important;
+            background: #ffffff !important;
+        }
+
+        .sale-receipt-meta span,
+        .sale-receipt-meta strong {
+            padding: 0 !important;
+            border: 0 !important;
+            color: #0f172a !important;
+            background: transparent !important;
+            font-size: 10px !important;
+            font-weight: 400 !important;
+            line-height: 1.25 !important;
+        }
+
+        #modalItems {
+            max-height: none !important;
+            overflow: visible !important;
+            padding: 6px 0 !important;
+        }
+
+        .sale-modal-item {
+            grid-template-columns: 26px 42px minmax(0, 1fr) 54px 60px !important;
+            gap: 5px !important;
+            padding: 8px 0 !important;
+            font-size: 10px !important;
+        }
+
+        .sale-modal-item-header {
+            font-size: 8px !important;
+        }
+
+        .sale-summary,
+        .sale-delivery-summary {
+            margin-right: 0 !important;
+            margin-left: 0 !important;
         }
 
     }
@@ -1307,6 +1583,9 @@
 
         .cashier-order-card {
             position: static;
+            max-height: none;
+            overflow-y: visible;
+            padding-right: 22px;
         }
 
         .cashier-filters {
@@ -1442,7 +1721,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function calculateTotal() {
 
-        return Object
+        const productTotal = Object
             .values(items)
             .reduce(
                 function (sum, item) {
@@ -1456,6 +1735,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
                 0
             );
+
+        const deliveryFee =
+            byId('delivery').checked
+                ? Math.max(
+                    0,
+                    Number(byId('deliveryFee').value || 0)
+                )
+                : 0;
+
+        return productTotal + deliveryFee;
 
     }
 
@@ -1694,7 +1983,7 @@ document.addEventListener('DOMContentLoaded', function () {
             Number(unit.available) +
             0.000001
         ) {
-            alert(
+            showCashierNotice(
                 'Only ' +
                 cleanNumber(unit.available) +
                 ' ' +
@@ -1723,7 +2012,7 @@ document.addEventListener('DOMContentLoaded', function () {
             Number(unit.base_stock) +
             0.000001
         ) {
-            alert(
+            showCashierNotice(
                 'The selected quantity exceeds the available stock for ' +
                 unit.name +
                 '.'
@@ -1759,7 +2048,7 @@ document.addEventListener('DOMContentLoaded', function () {
             );
         }
         catch (error) {
-            alert(
+            showCashierNotice(
                 'Unable to read the selected selling unit.'
             );
 
@@ -2075,6 +2364,26 @@ document.addEventListener('DOMContentLoaded', function () {
             updatePayment
         );
 
+    function confirmSaleOnEnter(event) {
+
+        if (event.key !== 'Enter') {
+            return;
+        }
+
+        event.preventDefault();
+
+        byId('confirmSaleButton')
+            .click();
+
+    }
+
+
+    byId('payment')
+        .addEventListener(
+            'keydown',
+            confirmSaleOnEnter
+        );
+
 
     function toggleDeliveryFields() {
 
@@ -2088,6 +2397,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
         [
+            byId('deliveryFee'),
             byId('customerName'),
             byId('customerContactNumber'),
             byId('deliveryAddress')
@@ -2096,6 +2406,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 field.required = checked;
             }
         );
+
+        updatePayment();
 
     }
 
@@ -2107,9 +2419,55 @@ document.addEventListener('DOMContentLoaded', function () {
         );
 
 
+    byId('deliveryFee')
+        .addEventListener(
+            'input',
+            updatePayment
+        );
+
+
+    byId('deliveryFee')
+        .addEventListener(
+            'keydown',
+            confirmSaleOnEnter
+        );
+
+
     /* ====================================================== */
     /* CONFIRM SALE / SAVE TRANSACTION                         */
     /* ====================================================== */
+
+    function showCashierNotice(message, title = 'Please check the order') {
+
+        byId('cashierNoticeTitle').textContent =
+            title;
+
+        byId('cashierNoticeMessage').textContent =
+            message;
+
+        byId('cashierNoticeModal')
+            .classList
+            .add('open');
+
+        byId('cashierNoticeModal')
+            .setAttribute('aria-hidden', 'false');
+
+        byId('cashierNoticeOk').focus();
+
+    }
+
+
+    function closeCashierNotice() {
+
+        byId('cashierNoticeModal')
+            .classList
+            .remove('open');
+
+        byId('cashierNoticeModal')
+            .setAttribute('aria-hidden', 'true');
+
+    }
+
 
     function closeModal() {
 
@@ -2140,7 +2498,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     orderItems.length === 0
                 ) {
 
-                    alert(
+                    showCashierNotice(
                         'Add at least one product to the order.'
                     );
 
@@ -2172,7 +2530,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     payment < total
                 ) {
 
-                    alert(
+                    showCashierNotice(
                         'Customer payment is less than the total amount.'
                     );
 
@@ -2197,6 +2555,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 byId('saleForm')
                     .submit();
+
+            }
+        );
+
+
+    byId('cashierNoticeOk')
+        .addEventListener(
+            'click',
+            closeCashierNotice
+        );
+
+
+    byId('cashierNoticeModal')
+        .addEventListener(
+            'click',
+            function (event) {
+
+                if (
+                    event.target ===
+                    byId('cashierNoticeModal')
+                ) {
+                    closeCashierNotice();
+                }
 
             }
         );
