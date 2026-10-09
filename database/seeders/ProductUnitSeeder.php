@@ -71,8 +71,8 @@ class ProductUnitSeeder extends Seeder
                 ProductUnit::create([
                     'product_id' => $product->product_id,
                     'unit_id' => $bag->unit_id,
-                    'selling_price' => 280.00,
-                    'purchase_cost' => 245.00,
+                    'selling_price' => 320.00,
+                    'purchase_cost' => 280.00,
                     'conversion_factor' => 40,
                     'is_base_unit' => false,
                     'is_active' => true,

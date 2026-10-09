@@ -5,16 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\Product;
 use App\Models\ProductUnit;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class ProductUnitController extends Controller
 {
-    public function index(Product $product)
+    public function index(Product $product): RedirectResponse
     {
         return redirect()->route('products.index');
     }
 
-    public function store(Request $request, Product $product)
+    public function store(Request $request, Product $product): RedirectResponse
     {
         $data = $request->validate([
             'unit_id' => [
@@ -79,7 +80,7 @@ class ProductUnitController extends Controller
         Request $request,
         Product $product,
         ProductUnit $productUnit
-    ) {
+    ): RedirectResponse {
         abort_unless(
             $productUnit->product_id === $product->product_id,
             404
@@ -87,13 +88,13 @@ class ProductUnitController extends Controller
 
         $data = $request->validate([
             'selling_price' => [
-                'required',
+                'nullable',
                 'numeric',
                 'min:0',
             ],
 
             'purchase_cost' => [
-                'required',
+                'nullable',
                 'numeric',
                 'min:0',
             ],
@@ -105,7 +106,35 @@ class ProductUnitController extends Controller
             ],
         ]);
 
-        $productUnit->update($data);
+        $conversionFactor = (float) $data['conversion_factor'];
+
+        if ($productUnit->is_base_unit) {
+            $productUnit->update([
+                'selling_price' => $data['selling_price'] ?? $productUnit->selling_price,
+                'purchase_cost' => $data['purchase_cost'] ?? $productUnit->purchase_cost,
+                'conversion_factor' => 1,
+            ]);
+        } else {
+            $baseUnit = $product->productUnits()
+                ->where('is_base_unit', true)
+                ->first()
+                ?? $product->productUnits()
+                    ->where('product_unit_id', '!=', $productUnit->product_unit_id)
+                    ->first();
+
+            if (! $baseUnit) {
+                return back()->with(
+                    'error',
+                    'Base unit is missing for this product.'
+                );
+            }
+
+            $productUnit->update([
+                'selling_price' => round((float) $baseUnit->selling_price * $conversionFactor, 2),
+                'purchase_cost' => round((float) $baseUnit->purchase_cost * $conversionFactor, 2),
+                'conversion_factor' => $conversionFactor,
+            ]);
+        }
 
         $this->log(
             $product,
@@ -122,7 +151,7 @@ class ProductUnitController extends Controller
     public function toggle(
         Product $product,
         ProductUnit $productUnit
-    ) {
+    ): RedirectResponse {
         abort_unless(
             $productUnit->product_id === $product->product_id,
             404
@@ -157,7 +186,7 @@ class ProductUnitController extends Controller
         Product $product,
         ProductUnit $productUnit,
         string $action
-    ) {
+    ): void {
         ActivityLog::create([
             'user_id' => auth()->id(),
             'module' => 'PRODUCT',

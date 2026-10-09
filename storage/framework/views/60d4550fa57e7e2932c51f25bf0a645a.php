@@ -111,6 +111,7 @@
                     $unitOptions = $product->productUnits
                         ->sortByDesc('is_base_unit')
                         ->map(fn ($unitOption) => [
+                            'product_unit_id' => $unitOption->product_unit_id,
                             'unit_id' => $unitOption->unit_id,
                             'name' => $unitOption->unit?->unit_name ?? '—',
                             'selling_price' => (float) $unitOption->selling_price,
@@ -118,6 +119,10 @@
                             'conversion_factor' => (float) $unitOption->conversion_factor,
                             'is_base_unit' => (bool) $unitOption->is_base_unit,
                             'is_active' => (bool) $unitOption->is_active,
+                            'update_url' => route('products.units.update', [
+                                $product,
+                                $unitOption,
+                            ]),
                         ])
                         ->values();
 
@@ -662,6 +667,13 @@
             id="unitsForm"
         >
             <?php echo csrf_field(); ?>
+            <input
+                type="hidden"
+                name="_method"
+                id="unitFormMethod"
+                value=""
+                disabled
+            >
 
             <div class="modal-grid">
 
@@ -1213,7 +1225,7 @@ body {
 
 .product-unit-view-row {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr auto;
     gap: 10px;
     align-items: center;
     padding: 12px 14px;
@@ -1239,6 +1251,11 @@ body {
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
+}
+
+.product-unit-view-actions {
+    display: flex;
+    justify-content: flex-end;
 }
 
 .product-view-grid {
@@ -1688,6 +1705,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const unitsForm =
         document.getElementById('unitsForm');
 
+    const unitFormMethod =
+        document.getElementById('unitFormMethod');
+
     const unitsModalTitle =
         document.getElementById('unitsModalTitle');
 
@@ -1741,6 +1761,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let currentBasePurchaseCost =
         0;
+
+    let currentProductStoreUrl =
+        '';
+
+    let currentProductUnits =
+        [];
 
     const originalUnitOptions =
         Array.from(unitOptionSelect.options).map(option => ({
@@ -1803,6 +1829,15 @@ document.addEventListener('DOMContentLoaded', function () {
         target.innerHTML = units.map(function (unit) {
             const baseLabel = unit.is_base_unit ? ' <span class="unit-chip">Base</span>' : '';
             const statusLabel = unit.is_active ? 'Active' : 'Archived';
+            const editButton = unit.is_base_unit
+                ? ''
+                : `<button
+                        type="button"
+                        class="btn light small unit-edit-btn"
+                        data-product-unit-id="${escapeHtml(unit.product_unit_id)}"
+                    >
+                        Edit
+                    </button>`;
 
             return `
                 <div class="product-unit-view-row">
@@ -1821,6 +1856,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div>
                         <span class="product-unit-view-label">Conversion / Status</span>
                         <span>${unit.conversion_factor}x • ${statusLabel}</span>
+                    </div>
+                    <div class="product-unit-view-actions">
+                        ${editButton}
                     </div>
                 </div>
             `;
@@ -1882,7 +1920,23 @@ document.addEventListener('DOMContentLoaded', function () {
         setConversionError();
     }
 
-    function refreshUnitDropdown(existingUnits) {
+    function refreshUnitDropdown(existingUnits, editingUnit = null) {
+        if (editingUnit) {
+            unitOptionSelect.innerHTML =
+                `<option value="${escapeHtml(editingUnit.unit_id)}" data-name="${escapeHtml(editingUnit.name)}">${escapeHtml(editingUnit.name)}</option>`;
+
+            unitOptionSelect.value =
+                editingUnit.unit_id;
+
+            unitOptionSelect.disabled =
+                true;
+
+            saveUnitButton.disabled =
+                false;
+
+            return;
+        }
+
         const usedUnitIds =
             new Set(existingUnits.map(unit => String(unit.unit_id)));
 
@@ -1908,6 +1962,59 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function prepareAddUnitForm() {
+        unitsForm.reset();
+
+        unitsForm.action =
+            currentProductStoreUrl;
+
+        unitFormMethod.value =
+            '';
+
+        unitFormMethod.disabled =
+            true;
+
+        unitOptionSelect.disabled =
+            false;
+
+        conversionSelectedQty.value =
+            1;
+
+        conversionBaseQty.value =
+            1;
+
+        saveUnitButton.textContent =
+            'Add Unit Option';
+
+        refreshUnitDropdown(currentProductUnits);
+        updateConversionFactor();
+    }
+
+    function prepareEditUnitForm(unit) {
+        unitsForm.reset();
+
+        unitsForm.action =
+            unit.update_url;
+
+        unitFormMethod.value =
+            'PUT';
+
+        unitFormMethod.disabled =
+            false;
+
+        conversionSelectedQty.value =
+            1;
+
+        conversionBaseQty.value =
+            Number(unit.conversion_factor || 1);
+
+        saveUnitButton.textContent =
+            'Save Unit';
+
+        refreshUnitDropdown(currentProductUnits, unit);
+        updateConversionFactor();
+    }
+
 
     function showUnitsModal() {
         unitsModal.classList.add('show');
@@ -1923,6 +2030,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
         saveUnitButton.textContent =
             'Add Unit Option';
+
+        unitFormMethod.value =
+            '';
+
+        unitFormMethod.disabled =
+            true;
+
+        unitOptionSelect.disabled =
+            false;
     }
 
 
@@ -1934,9 +2050,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 'click',
                 function () {
 
-                    unitsForm.reset();
-
-                    unitsForm.action =
+                    currentProductStoreUrl =
                         button.dataset.storeUrl;
 
                     currentBaseUnitName =
@@ -1948,24 +2062,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     currentBasePurchaseCost =
                         Number(button.dataset.basePurchaseCost || 0);
 
-                    const existingUnits =
+                    currentProductUnits =
                         JSON.parse(button.dataset.units || '[]');
-
-                    conversionSelectedQty.value =
-                        1;
-
-                    conversionBaseQty.value =
-                        1;
 
                     unitsModalTitle.textContent =
                         button.dataset.productName +
                         ' — Units';
 
-                    renderProductUnits(existingUnits);
+                    renderProductUnits(currentProductUnits);
 
-                    refreshUnitDropdown(existingUnits);
-
-                    updateConversionFactor();
+                    prepareAddUnitForm();
 
                     showUnitsModal();
                 }
@@ -1982,6 +2088,30 @@ document.addEventListener('DOMContentLoaded', function () {
     cancelUnitsModal.addEventListener(
         'click',
         hideUnitsModal
+    );
+
+    productUnitViewList.addEventListener(
+        'click',
+        function (event) {
+            const editButton =
+                event.target.closest('.unit-edit-btn');
+
+            if (!editButton) {
+                return;
+            }
+
+            const selectedUnit =
+                currentProductUnits.find(unit => (
+                    String(unit.product_unit_id) ===
+                    String(editButton.dataset.productUnitId)
+                ));
+
+            if (!selectedUnit) {
+                return;
+            }
+
+            prepareEditUnitForm(selectedUnit);
+        }
     );
 
 
@@ -2024,7 +2154,9 @@ document.addEventListener('DOMContentLoaded', function () {
             saveUnitButton.disabled = true;
 
             saveUnitButton.textContent =
-                'Adding...';
+                !unitFormMethod.disabled && unitFormMethod.value === 'PUT'
+                    ? 'Saving...'
+                    : 'Adding...';
         }
     );
 
