@@ -4,24 +4,6 @@
 
 @section('content')
 
-{{-- SUCCESS / ERROR --}}
-@if(session('error'))
-    <div class="alert danger" style="margin-bottom:16px;">
-        {{ session('error') }}
-    </div>
-@endif
-
-@if($errors->any())
-    <div class="alert danger" style="margin-bottom:16px;">
-        <strong>Please check the transaction.</strong>
-        <ul style="margin:8px 0 0 18px;">
-            @foreach($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
-@endif
-
 @include('sales.partials.module-tabs', ['activeSalesTab' => 'cashiering'])
 
 <form
@@ -184,7 +166,7 @@
                                 Available stock:
 
                                 <strong data-available-stock>
-                                    {{ rtrim(rtrim(number_format($baseStock, 6, '.', ''), '0'), '.') }}
+                                    {{ rtrim(rtrim(number_format($baseStock, 8, '.', ''), '0'), '.') }}
                                 </strong>
 
                                 {{ $baseUnitName }}
@@ -236,7 +218,7 @@
                                         $conversionFactor =
                                             max(
                                                 (float) $productUnit->conversion_factor,
-                                                0.000001
+                                                0.00000001
                                             );
 
                                         $availableSellingUnits =
@@ -486,7 +468,7 @@
                     <label>Contact Number</label>
                     <input
                         class="input"
-                        type="text"
+                        type="tel"
                         name="customer_contact_number"
                         id="customerContactNumber"
                         value="{{ old('customer_contact_number') }}"
@@ -494,7 +476,7 @@
                         maxlength="11"
                         minlength="11"
                         inputmode="numeric"
-                        pattern="09\d{9}"
+                        pattern="09[0-9]{9}"
                         data-digits-only
                         title="Contact number must start with 09 and be exactly 11 digits."
                     >
@@ -581,9 +563,6 @@
                 <span>Payment Option</span>
                 <strong>{{ $completedSale->payment_method === 'COD' ? 'Cash on Delivery (COD)' : 'Pay now' }}</strong>
 
-                <span>Payment Status</span>
-                <strong>{{ $completedSale->status === 'CANCELLED' ? 'Cancelled' : ($completedSale->payment_status === 'PAID' ? 'Paid' : 'Unpaid') }}</strong>
-
             </div>
 
 
@@ -601,7 +580,7 @@
                         $productUnit = $item->productUnit;
                         $product = $productUnit?->product;
                         $unit = $productUnit?->unit;
-                        $quantity = rtrim(rtrim(number_format($item->sellingQuantity(), 6, '.', ''), '0'), '.');
+                        $quantity = rtrim(rtrim(number_format($item->sellingQuantity(), 8, '.', ''), '0'), '.');
                     @endphp
 
                     <div class="sale-modal-item">
@@ -634,9 +613,6 @@
                         <span>Amount Due{{ $completedSale->delivery_status === 'PENDING' ? ' on Delivery' : '' }}</span>
                         <strong id="mAmountDue">₱{{ number_format($completedSale->amountDue(), 2) }}</strong>
                     </div>
-                    @if($completedSale->status !== 'CANCELLED')
-                        <p class="sale-cod-note">UNPAID — Collect payment after the customer receives the products.</p>
-                    @endif
                 @else
                     <div>
                         <span>Payment Received</span>
@@ -1097,13 +1073,6 @@
     #codAmountDueRow[hidden] {
         display: none !important;
     }
-
-    .sale-cod-note {
-        margin: 12px 0 0;
-        color: #000;
-        font-size: 12px;
-    }
-
 
     .cashier-change-row {
         display: flex;
@@ -1752,7 +1721,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         return Number(
-            number.toFixed(6)
+            number.toFixed(8)
         ).toString();
 
     }
@@ -1771,9 +1740,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
 
+    function sellingQuantity(item) {
+        return Number(item.selling_qty ?? Number(item.qty) / Number(item.factor));
+    }
+
     function itemSubtotal(item) {
         const priceInCentavos = Math.round(Number(item.price) * 100);
-        const quantityInMillionths = Math.round(Number(item.qty) / Number(item.factor) * 1000000);
+        const quantityInMillionths = Math.round(sellingQuantity(item) * 1000000);
 
         return Math.round(priceInCentavos * quantityInMillionths / 1000000) / 100;
     }
@@ -1850,7 +1823,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 .filter((item) => Number(item.product_id) === Number(row.dataset.productId))
                 .reduce((total, item) => total + Number(item.qty), 0);
             const availableStock = Math.max(0,
-                Number((Number(row.dataset.baseStock) - orderedQuantity).toFixed(6)));
+                Number((Number(row.dataset.baseStock) - orderedQuantity).toFixed(8)));
             const hasStock = availableStock > 0;
             const badge = row.querySelector('[data-stock-badge]');
 
@@ -1933,7 +1906,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                     type="number"
                                     class="cashier-order-qty-input"
                                     data-order-quantity="${item.id}"
-                                    value="${cleanNumber(item.qty / item.factor)}"
+                                    value="${cleanNumber(sellingQuantity(item))}"
                                     min="0.000001"
                                     step="any"
                                 >
@@ -1950,7 +1923,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             <input
                                 type="hidden"
                                 name="items[${index}][quantity]"
-                                value="${cleanNumber(item.qty / item.factor)}"
+                                value="${cleanNumber(sellingQuantity(item))}"
                             >
 
 
@@ -2008,13 +1981,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const existingQuantity =
             existingItem && !switchingUnits
-                ? Number(existingItem.qty)
+                ? sellingQuantity(existingItem)
                 : 0;
 
+        const newSellingQuantity =
+            Number((existingQuantity + Number(changeBy)).toFixed(6));
 
         const newQuantity =
-            Number((existingQuantity +
-                Number(changeBy) * Number(unit.factor)).toFixed(6));
+            Math.round((newSellingQuantity * Number(unit.factor) + Number.EPSILON) * 100000000) / 100000000;
 
         if (!Number.isFinite(newQuantity)) {
             showCashierNotice('Enter a valid quantity.');
@@ -2062,6 +2036,7 @@ document.addEventListener('DOMContentLoaded', function () {
             base_stock: Number(unit.base_stock),
             base_unit: unit.base_unit ?? unit.unit,
             base_unit_id: unit.base_unit_id,
+            selling_qty: newSellingQuantity,
             qty: newQuantity
         };
 
@@ -2137,7 +2112,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     Number(quantityInput.value || 0);
 
                 const currentQuantity =
-                    Number(item.qty) / Number(item.factor);
+                    sellingQuantity(item);
 
                 changeUnitQuantity(
                     item,

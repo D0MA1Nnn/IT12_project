@@ -44,6 +44,23 @@
     </div>
 
     <select
+        name="category"
+        class="inventory-select"
+        aria-label="Filter by category"
+    >
+        <option value="">All Categories</option>
+
+        @foreach($categories as $category)
+            <option
+                value="{{ $category->category_id }}"
+                @selected((string) request('category') === (string) $category->category_id)
+            >
+                {{ $category->category_name }}
+            </option>
+        @endforeach
+    </select>
+
+    <select
         name="stock"
         class="inventory-select"
     >
@@ -75,6 +92,7 @@
 
     @if(
         request()->filled('search') ||
+        request()->filled('category') ||
         request()->filled('stock')
     )
         <a
@@ -125,7 +143,6 @@
                     <th>Unit</th>
                     <th>Reorder Level</th>
                     <th>Status</th>
-                    <th>Action</th>
                 </tr>
             </thead>
 
@@ -214,32 +231,6 @@
 
                     </td>
 
-                    <td>
-
-                        <button
-                            type="button"
-                            class="btn primary small edit-inventory-product"
-
-                            data-update-url="{{ route('products.update', $product) }}"
-
-                            data-name="{{ $product->product_name }}"
-
-                            data-category="{{ $product->category_id }}"
-
-                            data-unit="{{ $baseUnit?->unit_id ?? '' }}"
-
-                            data-price="{{ $baseUnit?->selling_price ?? 0 }}"
-
-                            data-cost="{{ $baseUnit?->purchase_cost ?? 0 }}"
-
-                            data-reorder="{{ number_format($reorder, 0, '.', '') }}"
-
-                            data-description="{{ $product->description ?? '' }}"
-                        >
-                            Edit Product
-                        </button>
-
-                    </td>
 
                 </tr>
 
@@ -247,7 +238,7 @@
 
                 <tr>
                     <td
-                        colspan="7"
+                        colspan="6"
                         class="inventory-empty"
                     >
                         No inventory records found.
@@ -259,233 +250,6 @@
             </tbody>
 
         </table>
-
-    </div>
-
-</div>
-
-
-{{-- =========================================================
-    EDIT PRODUCT MODAL
-========================================================= --}}
-
-<div
-    class="inventory-modal-overlay"
-    id="inventoryEditModal"
->
-
-    <div class="inventory-modal">
-
-        <div class="inventory-modal-header">
-
-            <div>
-                <h2>
-                    Edit Product
-                </h2>
-
-                <p>
-                    Update product, pricing, inventory and base unit information.
-                </p>
-            </div>
-
-            <button
-                type="button"
-                class="inventory-modal-close"
-                id="closeInventoryEdit"
-            >
-                &times;
-            </button>
-
-        </div>
-
-
-        <form
-            method="POST"
-            id="inventoryEditForm"
-        >
-            @csrf
-            @method('PUT')
-
-
-            <div class="inventory-modal-grid">
-
-                <div class="field">
-
-                    <label>
-                        Product Name
-                    </label>
-
-                    <input
-                        type="text"
-                        name="product_name"
-                        id="inventoryEditName"
-                        class="input"
-                        maxlength="150"
-                        required
-                    >
-
-                </div>
-
-
-                <div class="field">
-
-                    <label>
-                        Category
-                    </label>
-
-                    <select
-                        name="category_id"
-                        id="inventoryEditCategory"
-                        required
-                    >
-
-                        <option value="">
-                            Select category
-                        </option>
-
-                        @foreach($categories as $category)
-
-                            <option
-                                value="{{ $category->category_id }}"
-                            >
-                                {{ $category->category_name }}
-                            </option>
-
-                        @endforeach
-
-                    </select>
-
-                </div>
-
-
-                <div class="field">
-
-                    <label>
-                        Base Unit
-                    </label>
-
-                    <select
-                        name="unit_id"
-                        id="inventoryEditUnit"
-                        required
-                    >
-
-                        <option value="">
-                            Select unit
-                        </option>
-
-                        @foreach($units as $unit)
-
-                            <option
-                                value="{{ $unit->unit_id }}"
-                            >
-                                {{ $unit->unit_name }}
-                                ({{ $unit->unit_symbol }})
-                            </option>
-
-                        @endforeach
-
-                    </select>
-
-                </div>
-
-
-                <div class="field">
-
-                    <label>
-                        Selling Price
-                    </label>
-
-                    <input
-                        type="number"
-                        name="selling_price"
-                        id="inventoryEditPrice"
-                        class="input"
-                        min="0"
-                        step="0.01"
-                        required
-                    >
-
-                </div>
-
-
-                <div class="field">
-
-                    <label>
-                        Purchase Cost
-                    </label>
-
-                    <input
-                        type="number"
-                        name="purchase_cost"
-                        id="inventoryEditCost"
-                        class="input"
-                        min="0"
-                        step="0.01"
-                        required
-                    >
-
-                </div>
-
-
-                <div class="field">
-
-                    <label>
-                        Reorder Level
-                    </label>
-
-                    <input
-                        type="number"
-                        name="reorder_level"
-                        id="inventoryEditReorder"
-                        class="input"
-                        min="0"
-                        step="1"
-                        required
-                    >
-
-                </div>
-
-            </div>
-
-
-            <div class="field">
-
-                <label>
-                    Description
-                </label>
-
-                <textarea
-                    name="description"
-                    id="inventoryEditDescription"
-                    class="input"
-                    rows="4"
-                ></textarea>
-
-            </div>
-
-
-            <div class="inventory-modal-actions">
-
-                <button
-                    type="button"
-                    class="btn light"
-                    id="cancelInventoryEdit"
-                >
-                    Cancel
-                </button>
-
-                <button
-                    type="submit"
-                    class="btn primary"
-                    id="saveInventoryEdit"
-                >
-                    Save Changes
-                </button>
-
-            </div>
-
-        </form>
 
     </div>
 
@@ -706,144 +470,6 @@ body {
 
 
 /* =========================================================
-   MODAL
-========================================================= */
-
-.inventory-modal-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-
-    display: none;
-    align-items: center;
-    justify-content: center;
-
-    padding: 24px;
-
-    background: rgba(15, 23, 42, .58);
-    backdrop-filter: blur(2px);
-}
-
-.inventory-modal-overlay.show {
-    display: flex;
-}
-
-.inventory-modal {
-    width: min(850px, 100%);
-    max-height: 90vh;
-    overflow-y: auto;
-
-    background: #fff;
-    border-radius: 16px;
-
-    padding: 26px;
-
-    box-shadow:
-        0 25px 60px rgba(15, 23, 42, .25);
-}
-
-.inventory-modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-
-    margin-bottom: 24px;
-}
-
-.inventory-modal-header h2 {
-    margin: 0 0 5px;
-    color: #0f172a;
-}
-
-.inventory-modal-header p {
-    margin: 0;
-    color: #8492aa;
-    font-size: 13px;
-}
-
-.inventory-modal-close {
-    width: 36px;
-    height: 36px;
-
-    border: 0;
-    border-radius: 8px;
-
-    background: #f1f5f9;
-    color: #475569;
-
-    font-size: 25px;
-    line-height: 1;
-
-    cursor: pointer;
-}
-
-.inventory-modal-close:hover {
-    background: #e2e8f0;
-}
-
-.inventory-modal-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-}
-
-.inventory-modal .field {
-    margin-bottom: 16px;
-}
-
-.inventory-modal .field label {
-    display: block;
-    margin-bottom: 7px;
-
-    color: #0f172a;
-    font-size: 13px;
-    font-weight: 700;
-}
-
-.inventory-modal .input,
-.inventory-modal select,
-.inventory-modal textarea {
-    width: 100%;
-    box-sizing: border-box;
-
-    border: 1px solid #dbe3ef;
-    border-radius: 8px;
-
-    background: #f8fafc;
-
-    padding: 11px 13px;
-
-    font: inherit;
-    color: #0f172a;
-
-    outline: none;
-}
-
-.inventory-modal select {
-    height: 44px;
-}
-
-.inventory-modal textarea {
-    resize: vertical;
-}
-
-.inventory-modal .input:focus,
-.inventory-modal select:focus,
-.inventory-modal textarea:focus {
-    background: #fff;
-    border-color: #93b4ef;
-    box-shadow: 0 0 0 3px rgba(37,99,235,.08);
-}
-
-.inventory-modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 9px;
-    margin-top: 6px;
-}
-
-
-/* =========================================================
    RESPONSIVE
 ========================================================= */
 
@@ -853,247 +479,9 @@ body {
     .inventory-select {
         width: 100%;
     }
-
-    .inventory-modal-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .inventory-modal {
-        padding: 20px;
-    }
-
-    .inventory-modal-actions {
-        flex-direction: column-reverse;
-    }
-
-    .inventory-modal-actions .btn {
-        width: 100%;
-    }
 }
 
 </style>
 
-
-@push('scripts')
-
-<script>
-
-document.addEventListener(
-    'DOMContentLoaded',
-    function () {
-
-        const modal =
-            document.getElementById(
-                'inventoryEditModal'
-            );
-
-        const form =
-            document.getElementById(
-                'inventoryEditForm'
-            );
-
-        const nameInput =
-            document.getElementById(
-                'inventoryEditName'
-            );
-
-        const categoryInput =
-            document.getElementById(
-                'inventoryEditCategory'
-            );
-
-        const unitInput =
-            document.getElementById(
-                'inventoryEditUnit'
-            );
-
-        const priceInput =
-            document.getElementById(
-                'inventoryEditPrice'
-            );
-
-        const costInput =
-            document.getElementById(
-                'inventoryEditCost'
-            );
-
-        const reorderInput =
-            document.getElementById(
-                'inventoryEditReorder'
-            );
-
-        const descriptionInput =
-            document.getElementById(
-                'inventoryEditDescription'
-            );
-
-        const closeButton =
-            document.getElementById(
-                'closeInventoryEdit'
-            );
-
-        const cancelButton =
-            document.getElementById(
-                'cancelInventoryEdit'
-            );
-
-        const saveButton =
-            document.getElementById(
-                'saveInventoryEdit'
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | OPEN EDIT PRODUCT
-        |--------------------------------------------------------------------------
-        */
-
-        document
-            .querySelectorAll(
-                '.edit-inventory-product'
-            )
-            .forEach(function (button) {
-
-                button.addEventListener(
-                    'click',
-                    function () {
-
-                        form.action =
-                            button.dataset.updateUrl;
-
-                        nameInput.value =
-                            button.dataset.name || '';
-
-                        categoryInput.value =
-                            button.dataset.category || '';
-
-                        unitInput.value =
-                            button.dataset.unit || '';
-
-                        priceInput.value =
-                            button.dataset.price || '0';
-
-                        costInput.value =
-                            button.dataset.cost || '0';
-
-                        reorderInput.value =
-                            button.dataset.reorder || '0';
-
-                        descriptionInput.value =
-                            button.dataset.description || '';
-
-                        modal.classList.add(
-                            'show'
-                        );
-
-                        document.body.style.overflow =
-                            'hidden';
-
-                        setTimeout(
-                            function () {
-                                nameInput.focus();
-                            },
-                            100
-                        );
-                    }
-                );
-
-            });
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CLOSE
-        |--------------------------------------------------------------------------
-        */
-
-        function closeModal() {
-
-            modal.classList.remove(
-                'show'
-            );
-
-            document.body.style.overflow =
-                '';
-
-            saveButton.disabled =
-                false;
-
-            saveButton.textContent =
-                'Save Changes';
-        }
-
-
-        closeButton.addEventListener(
-            'click',
-            closeModal
-        );
-
-
-        cancelButton.addEventListener(
-            'click',
-            closeModal
-        );
-
-
-        modal.addEventListener(
-            'click',
-            function (event) {
-
-                if (event.target === modal) {
-                    closeModal();
-                }
-
-            }
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SAVE
-        |--------------------------------------------------------------------------
-        */
-
-        form.addEventListener(
-            'submit',
-            function () {
-
-                saveButton.disabled =
-                    true;
-
-                saveButton.textContent =
-                    'Saving...';
-
-            }
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | ESCAPE
-        |--------------------------------------------------------------------------
-        */
-
-        document.addEventListener(
-            'keydown',
-            function (event) {
-
-                if (
-                    event.key === 'Escape' &&
-                    modal.classList.contains('show')
-                ) {
-                    closeModal();
-                }
-
-            }
-        );
-
-    }
-);
-
-</script>
-
-@endpush
 
 @endsection

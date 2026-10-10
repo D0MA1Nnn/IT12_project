@@ -953,7 +953,7 @@
                 </h2>
 
                 <div class="muted">
-                    Add a supplier used for purchasing construction materials.
+                    All supplier details are required. Products Offered is optional.
                 </div>
 
             </div>
@@ -995,9 +995,10 @@
                             class="input"
                             value="{{ old('supplier_name') }}"
                             placeholder="Enter supplier name"
-                            maxlength="150"
+                            maxlength="60"
                             required
                         >
+                        <small class="muted">Maximum 60 characters.</small>
 
                     </div>
 
@@ -1015,8 +1016,10 @@
                             class="input"
                             value="{{ old('contact_person') }}"
                             placeholder="Enter contact person"
-                            maxlength="150"
+                            maxlength="60"
+                            required
                         >
+                        <small class="muted">Maximum 60 characters.</small>
 
                     </div>
 
@@ -1029,16 +1032,19 @@
                         </label>
 
                         <input
-                            type="text"
+                            type="tel"
                             name="contact_number"
                             class="input"
                             value="{{ old('contact_number') }}"
-                            placeholder="Enter contact number"
+                            placeholder="09XXXXXXXXX"
                             maxlength="11"
                             minlength="11"
                             inputmode="numeric"
-                            pattern="\d{11}"
-                            title="Contact number must be exactly 11 digits."
+                            autocomplete="tel"
+                            pattern="09[0-9]{9}"
+                            data-digits-only
+                            title="Contact number must start with 09 and be exactly 11 digits."
+                            required
                         >
 
                     </div>
@@ -1057,8 +1063,12 @@
                             class="input"
                             value="{{ old('email') }}"
                             placeholder="Enter email address"
-                            maxlength="150"
+                            maxlength="60"
+                            pattern="[^\s@]+@([gG][mM][aA][iI][lL]|[yY][aA][hH][oO][oO]|[oO][uU][tT][lL][oO][oO][kK])\.[cC][oO][mM]"
+                            title="Use an email ending with @gmail.com, @yahoo.com, or @outlook.com."
+                            required
                         >
+                        <small class="muted">Gmail, Yahoo or Outlook only. Maximum 60 characters.</small>
 
                     </div>
 
@@ -1074,8 +1084,10 @@
                             name="address"
                             class="input"
                             placeholder="Enter supplier address"
-                            maxlength="1000"
+                            maxlength="200"
+                            required
                         >{{ old('address') }}</textarea>
+                        <small class="muted">Maximum 200 characters.</small>
 
                     </div>
 
@@ -1159,7 +1171,7 @@
                 </h2>
 
                 <div class="muted">
-                    Update the selected supplier information.
+                    All supplier details are required. Products Offered is optional.
                 </div>
 
             </div>
@@ -1202,9 +1214,10 @@
                             name="supplier_name"
                             id="editSupplierName"
                             class="input"
-                            maxlength="150"
+                            maxlength="60"
                             required
                         >
+                        <small class="muted">Maximum 60 characters.</small>
 
                     </div>
 
@@ -1221,8 +1234,10 @@
                             name="contact_person"
                             id="editSupplierContactPerson"
                             class="input"
-                            maxlength="150"
+                            maxlength="60"
+                            required
                         >
+                        <small class="muted">Maximum 60 characters.</small>
 
                     </div>
 
@@ -1235,15 +1250,19 @@
                         </label>
 
                         <input
-                            type="text"
+                            type="tel"
                             name="contact_number"
                             id="editSupplierContactNumber"
                             class="input"
                             maxlength="11"
                             minlength="11"
                             inputmode="numeric"
-                            pattern="\d{11}"
-                            title="Contact number must be exactly 11 digits."
+                            autocomplete="tel"
+                            pattern="09[0-9]{9}"
+                            data-digits-only
+                            placeholder="09XXXXXXXXX"
+                            title="Contact number must start with 09 and be exactly 11 digits."
+                            required
                         >
 
                     </div>
@@ -1261,8 +1280,12 @@
                             name="email"
                             id="editSupplierEmail"
                             class="input"
-                            maxlength="150"
+                            maxlength="60"
+                            pattern="[^\s@]+@([gG][mM][aA][iI][lL]|[yY][aA][hH][oO][oO]|[oO][uU][tT][lL][oO][oO][kK])\.[cC][oO][mM]"
+                            title="Use an email ending with @gmail.com, @yahoo.com, or @outlook.com."
+                            required
                         >
+                        <small class="muted">Gmail, Yahoo or Outlook only. Maximum 60 characters.</small>
 
                     </div>
 
@@ -1278,8 +1301,10 @@
                             name="address"
                             id="editSupplierAddress"
                             class="input"
-                            maxlength="1000"
+                            maxlength="200"
+                            required
                         ></textarea>
+                        <small class="muted">Maximum 200 characters.</small>
 
                     </div>
 

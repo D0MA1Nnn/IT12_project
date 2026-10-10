@@ -23,7 +23,7 @@ class Inventory extends Model
     protected function casts(): array
     {
         return [
-            'quantity_on_hand' => 'decimal:6',
+            'quantity_on_hand' => 'decimal:8',
             'reorder_level' => 'decimal:6',
             'last_updated' => 'datetime',
         ];

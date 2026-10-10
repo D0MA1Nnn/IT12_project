@@ -127,6 +127,39 @@ function setup(stock = 4080, { approvalStatus = 200 } = {}) {
     };
 }
 
+test('eight decimal conversions preserve stock and the exact entered selling quantity', () => {
+    const context = setup(1);
+    const button = context.cement.buttons[1];
+    const unit = JSON.parse(button.dataset.unit);
+    button.dataset.unit = JSON.stringify({ ...unit, factor: 0.00605001, price: 1, unit: 'Piece' });
+
+    button.click();
+    assert.equal(context.cement.available.textContent, '0.99394999');
+    context.quantity(1, 0.5);
+    assert.equal(context.cement.available.textContent, '0.99697499');
+    assert.match(context.ids.get('order').innerHTML, /name="items\[0\]\[quantity\]"\s+value="0\.5"/);
+    context.action('orderIncrease', 1);
+    assert.equal(context.cement.available.textContent, '0.99092498');
+    assert.match(context.ids.get('order').innerHTML, /name="items\[0\]\[quantity\]"\s+value="1\.5"/);
+    context.action('remove', 1);
+    assert.equal(context.cement.available.textContent, '1');
+});
+
+test('tiny conversions and one hundred-millionth stock shortages are not rounded away', () => {
+    const context = setup(0.00605);
+    const button = context.cement.buttons[1];
+    const unit = JSON.parse(button.dataset.unit);
+    button.dataset.unit = JSON.stringify({ ...unit, factor: 0.00605001, price: 1, unit: 'Piece' });
+    button.click();
+    assert.equal(context.cement.available.textContent, '0.00605');
+    assert.match(context.ids.get('order').innerHTML, /No items added/);
+
+    button.dataset.unit = JSON.stringify({ ...unit, factor: 0.00000001, price: 0.01, unit: 'Piece' });
+    button.click();
+    assert.equal(context.cement.available.textContent, '0.00604999');
+    assert.match(context.ids.get('order').innerHTML, /name="items\[0\]\[quantity\]"\s+value="1"/);
+});
+
 test('adding 360 kilograms previews 3720 available without changing the original stock', () => {
     const context = setup();
     context.cement.buttons[0].click();

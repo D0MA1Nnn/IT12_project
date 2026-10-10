@@ -735,8 +735,8 @@ PRODUCT UNIT MANAGEMENT MODAL
                             class="input"
                             type="number"
                             id="conversionSelectedQty"
-                            min="0.001"
-                            step="0.001"
+                            min="0.00000001"
+                            step="0.00000001"
                             value="1"
                             required
                         >
@@ -749,8 +749,8 @@ PRODUCT UNIT MANAGEMENT MODAL
                             class="input"
                             type="number"
                             id="conversionBaseQty"
-                            min="0.001"
-                            step="0.001"
+                            min="0.00000001"
+                            step="0.00000001"
                             value="1"
                             required
                         >
@@ -1984,10 +1984,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const factor =
-            baseQty / selectedQty;
+            Number((baseQty / selectedQty).toFixed(8));
+
+        if (!Number.isFinite(factor) || factor <= 0) {
+            unitConversionFactor.value = '';
+            setConversionError('Conversion must be at least 0.00000001.');
+            setAutomaticUnitPrices();
+            return;
+        }
 
         unitConversionFactor.value =
-            factor.toFixed(6);
+            factor.toFixed(8);
 
         setAutomaticUnitPrices(factor);
         setConversionError();

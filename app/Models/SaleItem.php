@@ -27,7 +27,7 @@ class SaleItem extends Model
     protected function casts(): array
     {
         return [
-            'quantity' => 'decimal:6',
+            'quantity' => 'decimal:8',
             'unit_price' => 'decimal:2',
             'subtotal' => 'decimal:2',
             'selling_details' => 'array',

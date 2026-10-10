@@ -11,17 +11,6 @@
     <div class="who">Owner</div>
 </div>
 
-@if ($errors->any())
-    <div class="purchase-alert error">
-        <strong>Please check the purchase details.</strong>
-        <ul>
-            @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
-@endif
-
 <div class="purchase-card">
     <form method="POST" action="{{ route('purchases.store') }}" id="purchaseForm">
         @csrf
@@ -145,7 +134,7 @@
         const qty = Math.max(0, Number(quantityInput.value) || 0);
         const baseQty = qty * Number(unit.conversion_factor || 0);
         const baseUnit = unitsFor(unit.product_id).find(item => item.is_base_unit) || unitsFor(unit.product_id)[0];
-        conversionText.textContent = `${qty || 0} ${unit.unit_name} × ${Number(unit.conversion_factor)} = ${Number(baseQty.toFixed(3))} ${baseUnit?.unit_name || 'base unit'} added to inventory`;
+        conversionText.textContent = `${qty || 0} ${unit.unit_name} × ${Number(unit.conversion_factor)} = ${Number(baseQty.toFixed(8))} ${baseUnit?.unit_name || 'base unit'} added to inventory`;
         calculateTotal();
     }
 

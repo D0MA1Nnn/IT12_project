@@ -28,7 +28,7 @@ class ProductUnit extends Model
         return [
             'selling_price' => 'decimal:2',
             'purchase_cost' => 'decimal:2',
-            'conversion_factor' => 'decimal:6',
+            'conversion_factor' => 'decimal:8',
             'is_base_unit' => 'boolean',
             'is_active' => 'boolean',
         ];

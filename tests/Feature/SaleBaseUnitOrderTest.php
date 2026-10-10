@@ -252,7 +252,8 @@ test('COD reserves stock without payment and prints the unpaid amount due', func
 
     $this->get(route('sales.create'))
         ->assertSee('Cash on Delivery (COD)')->assertSee('Amount Due on Delivery')
-        ->assertSee('UNPAID — Collect payment after the customer receives the products.')
+        ->assertDontSee('Payment Status')
+        ->assertDontSee('UNPAID — Collect payment after the customer receives the products.')
         ->assertSee('id="mAmountDue"', false)->assertDontSee('id="mChange"', false)
         ->assertDontSee('id="mPayment"', false);
 });
@@ -279,7 +280,11 @@ test('marking COD delivered automatically pays the products and delivery fee wit
     expect($sale->fresh()->paymentChange())->toBe(0.0);
     expect($sale->fresh()->paid_at->toDateTimeString())->toBe(now()->toDateTimeString());
     $this->assertDatabaseCount('activity_logs', 2);
-    $this->get(route('sales.create'))->assertSee('Payment Received')->assertSee('₱490.00')->assertSee('₱10.00')->assertSee('₱0.00')->assertDontSee('id="mAmountDue"', false);
+    $this->get(route('sales.create'))
+        ->assertSee('Payment Received')->assertSee('₱490.00')->assertSee('₱10.00')->assertSee('₱0.00')
+        ->assertDontSee('Payment Status')
+        ->assertDontSee('UNPAID — Collect payment after the customer receives the products.')
+        ->assertDontSee('id="mAmountDue"', false);
     $this->get(route('sales.report'))->assertViewHas('totalAmount', 490.0);
     $this->get(route('dashboard'))->assertViewHas('todaySalesAmount', 490)->assertViewHas('pendingDeliveryCount', 0);
     $this->get(route('sales.index'))->assertViewHas('sales', fn ($sales): bool => $sales->total() === 0);
@@ -460,6 +465,14 @@ test('delivery actions remove redundant details and show a confirmation dialog b
         ->assertSee('role="dialog"', false)->assertSee('Complete Delivery?')
         ->assertSee($message)->assertSee($confirmButton)->assertSee('Go Back')
         ->assertSee('action="'.route('sales.complete-delivery', $sale).'"', false)
+        ->assertSee('data-cancel-confirm-modal="confirmCancellationModal'.$sale->sale_id.'"', false)
+        ->assertSee('data-confirm-cancellation="cancelDeliveryForm'.$sale->sale_id.'"', false)
+        ->assertSee('data-return-modal="cancelDeliveryModal'.$sale->sale_id.'"', false)
+        ->assertSee('aria-labelledby="confirmCancellationTitle'.$sale->sale_id.'"', false)
+        ->assertSee('Cancel this delivery?')->assertSee('Yes, Cancel Delivery')
+        ->assertSee('All products in this sale will be returned to inventory.')
+        ->assertSee('action="'.route('sales.cancel-delivery', $sale).'"', false)
+        ->assertDontSee('onsubmit="return confirm(', false)
         ->assertDontSee('onsubmit="return confirm(this.dataset.confirm)"', false);
 
     $this->assertDatabaseHas('sales', [

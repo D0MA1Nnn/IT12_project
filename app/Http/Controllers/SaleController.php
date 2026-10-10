@@ -6,9 +6,12 @@ use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductUnit;
+use App\Models\Purchase;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Services\DatabaseBackupService;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -151,12 +154,14 @@ class SaleController extends Controller
     }
 
     // =========================================================
-    // SALES REPORT
+    // REPORT
     // =========================================================
 
-    public function report(Request $request)
+    public function report(Request $request): View
     {
         $filters = $request->validate([
+            'report_type' => ['nullable', 'string', Rule::in(['sales', 'purchases'])],
+            'print' => ['nullable', 'boolean'],
             'q' => [
                 'nullable',
                 'string',
@@ -177,6 +182,7 @@ class SaleController extends Controller
                 'after_or_equal:from',
             ],
         ], [
+            'report_type.in' => 'Please select Sales List or Purchases List.',
             'q.max' => 'Search must not be longer than 100 characters.',
             'q.regex' => 'Search can only contain letters, numbers, spaces, dash, underscore, @, and dot.',
             'from.date_format' => 'From date must be a valid date.',
@@ -186,16 +192,20 @@ class SaleController extends Controller
             'to.after_or_equal' => 'To date cannot be earlier than the From date.',
         ]);
 
-        $query = Sale::with([
-            'user',
-            'items.productUnit.product',
-            'items.productUnit.unit',
-        ])
-            ->where('status', 'COMPLETED');
+        $reportType = $filters['report_type'] ?? 'sales';
+        $isPurchaseReport = $reportType === 'purchases';
+        abort_if($isPurchaseReport && $request->user()->role !== 'OWNER', 403);
+
+        $dateColumn = $isPurchaseReport ? 'purchase_date' : 'sale_date';
+        $referenceColumn = $isPurchaseReport ? 'purchase_id' : 'sale_id';
+        $query = $isPurchaseReport
+            ? Purchase::with(['supplier', 'user'])
+            : Sale::with('user');
+        $query->withCount('items')->where('status', 'COMPLETED');
 
         if (! empty($filters['from'])) {
             $query->whereDate(
-                'sale_date',
+                $dateColumn,
                 '>=',
                 $filters['from']
             );
@@ -203,7 +213,7 @@ class SaleController extends Controller
 
         if (! empty($filters['to'])) {
             $query->whereDate(
-                'sale_date',
+                $dateColumn,
                 '<=',
                 $filters['to']
             );
@@ -215,17 +225,17 @@ class SaleController extends Controller
 
             $numeric = preg_replace('/\D/', '', $search);
 
-            $query->where(function ($query) use ($search, $numeric) {
+            $query->where(function (Builder $query) use ($search, $numeric, $referenceColumn, $isPurchaseReport): void {
                 if ($numeric !== '') {
                     $query->orWhere(
-                        'sale_id',
+                        $referenceColumn,
                         (int) $numeric
                     );
                 }
 
                 $query->orWhereHas(
                     'user',
-                    function ($userQuery) use ($search) {
+                    function (Builder $userQuery) use ($search): void {
                         $userQuery->where(
                             'username',
                             'like',
@@ -233,24 +243,34 @@ class SaleController extends Controller
                         );
                     }
                 );
+
+                if ($isPurchaseReport) {
+                    $query->orWhereHas('supplier', function (Builder $supplierQuery) use ($search): void {
+                        $supplierQuery->where('supplier_name', 'like', "%{$search}%");
+                    });
+                }
             });
         }
 
         $summaryQuery = clone $query;
 
-        $totalSales = (clone $summaryQuery)->count();
+        $totalRecords = (clone $summaryQuery)->count();
         $totalAmount = (float) (clone $summaryQuery)->sum('total_amount');
 
-        return view('sales.report', [
-            'sales' => $query
-                ->latest('sale_date')
-                ->paginate(15)
-                ->withQueryString(),
-            'averageSale' => $totalSales > 0 ? $totalAmount / $totalSales : 0,
-            'deliverySales' => (clone $summaryQuery)->where('delivery_required', true)->count(),
+        $isPrintReport = (bool) ($filters['print'] ?? false);
+        $query->with(['items.productUnit.product', 'items.productUnit.unit'])
+            ->latest($dateColumn)->orderByDesc($referenceColumn);
+
+        return view($isPrintReport ? 'sales.report-print' : 'sales.report', [
+            'records' => $isPrintReport ? $query->lazy(200) : $query->paginate(15)->withQueryString(),
+            'filters' => $filters,
+            'reportType' => $reportType,
+            'isPurchaseReport' => $isPurchaseReport,
+            'averageAmount' => $totalRecords > 0 ? $totalAmount / $totalRecords : 0,
+            'deliverySales' => $isPurchaseReport ? 0 : (clone $summaryQuery)->where('delivery_required', true)->count(),
             'totalAmount' => $totalAmount,
-            'totalSales' => $totalSales,
-            'walkInSales' => (clone $summaryQuery)->where('delivery_required', false)->count(),
+            'totalRecords' => $totalRecords,
+            'walkInSales' => $isPurchaseReport ? 0 : (clone $summaryQuery)->where('delivery_required', false)->count(),
         ]);
     }
 
@@ -281,7 +301,7 @@ class SaleController extends Controller
                 'required_if:delivery_required,1',
                 'nullable',
                 'string',
-                'regex:/^09\d{9}$/',
+                'regex:/\A09[0-9]{9}\z/',
             ],
 
             'delivery_address' => [
@@ -327,7 +347,7 @@ class SaleController extends Controller
                 'decimal:0,6',
             ],
         ], [
-            'customer_contact_number.regex' => 'Customer contact number must start with 09 and contain exactly 11 numbers.',
+            'customer_contact_number.regex' => 'Customer contact number must start with 09 and contain exactly 11 digits.',
             'customer_name.max' => 'Customer name must not be longer than 30 characters.',
             'delivery_address.max' => 'Address must not be longer than 60 characters.',
             'delivery_fee.required_if' => 'Delivery fee is required when delivery is selected.',
@@ -530,7 +550,7 @@ class SaleController extends Controller
                     $quantity =
                         (float) $item['quantity'];
 
-                    $neededBaseQuantity = round($quantity * $conversionFactor, 6);
+                    $neededBaseQuantity = round($quantity * $conversionFactor, 8);
 
                     if ($neededBaseQuantity <= 0) {
                         throw ValidationException::withMessages([
@@ -565,7 +585,7 @@ class SaleController extends Controller
                         $reservedByProduct[$productId]
                         ?? 0;
 
-                    $totalRequired = round($alreadyReserved + $neededBaseQuantity, 6);
+                    $totalRequired = round($alreadyReserved + $neededBaseQuantity, 8);
 
                     /*
                     |--------------------------------------------------------------------------
@@ -631,7 +651,7 @@ class SaleController extends Controller
 
                         'subtotal' => $subtotal,
                         'selling_details' => [
-                            'quantity' => round($sellingQuantity, 6),
+                            'quantity' => round($sellingQuantity, 8),
                             'unit' => $sellingUnit->unit?->unit_name ?? 'Unit',
                             'unit_price' => $sellingPrice,
                             'product_unit_id' => $sellingUnit->product_unit_id,

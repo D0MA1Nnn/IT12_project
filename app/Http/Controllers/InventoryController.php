@@ -6,11 +6,13 @@ use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\Inventory;
 use App\Models\UnitOfMeasure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
 class InventoryController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): View
     {
         $query = Inventory::with([
             'product.category',
@@ -26,6 +28,12 @@ class InventoryController extends Controller
                     'like',
                     "%{$search}%"
                 );
+            });
+        }
+
+        if ($request->filled('category')) {
+            $query->whereHas('product', function (Builder $productQuery) use ($request): void {
+                $productQuery->where('category_id', $request->category);
             });
         }
 
@@ -102,8 +110,7 @@ class InventoryController extends Controller
             'user_id' => auth()->id(),
             'module' => 'INVENTORY',
             'action' => 'UPDATE',
-            'description' =>
-                "Updated reorder level for {$inventory->product->product_name}.",
+            'description' => "Updated reorder level for {$inventory->product->product_name}.",
             'reference_type' => 'Inventory',
             'reference_id' => $inventory->inventory_id,
         ]);

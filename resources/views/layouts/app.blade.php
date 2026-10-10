@@ -496,6 +496,66 @@
             color: #a52323;
         }
 
+        .success-toast,
+        .error-toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 7000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: max-content;
+            max-width: min(360px, calc(100vw - 32px));
+            padding: 14px 18px;
+            border: 1px solid #bce7cd;
+            border-radius: 12px;
+            background: #eaf8ef;
+            color: #18733a;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+            font-size: 13px;
+            overflow-wrap: anywhere;
+        }
+
+        .error-toast {
+            z-index: 120000;
+            display: block;
+            max-height: calc(100vh - 32px);
+            overflow-y: auto;
+            border-color: #fecaca;
+            background: #fff0f0;
+            color: #a52323;
+        }
+
+        .error-toast-header {
+            margin-bottom: 10px;
+        }
+
+        .error-toast ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .error-toast li + li {
+            margin-top: 6px;
+        }
+
+        .field-validation-warning {
+            display: block;
+            box-sizing: border-box;
+            width: 100%;
+            margin-top: 8px;
+            padding: 8px 12px;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            background: #fff0f0;
+            color: #a52323;
+            font-size: 12px;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
+
 
         /* =========================================================
            TABS
@@ -1555,7 +1615,7 @@
                         class="{{ request()->routeIs('sales.report') ? 'active' : '' }}"
                         href="{{ route('sales.report') }}"
                     >
-                        Sales Report
+                        Report
                     </a>
 
                     <a
@@ -1603,7 +1663,7 @@
                         class="{{ request()->routeIs('sales.report') ? 'active' : '' }}"
                         href="{{ route('sales.report') }}"
                     >
-                        Sales Report
+                        Report
                     </a>
 
                 @endif
@@ -1650,8 +1710,10 @@
                         $moduleTitle = 'Dashboard';
                         $moduleDescription = 'Overview of today’s store activity.';
                     } elseif (request()->is('sales-report*') || request()->is('sales/report*') || request()->routeIs('sales.report')) {
-                        $moduleTitle = 'Sales Report';
-                        $moduleDescription = 'Review completed sales, totals, and transaction records.';
+                        $moduleTitle = 'Report';
+                        $moduleDescription = auth()->user()->role === 'OWNER'
+                            ? 'Review completed sales, purchases, totals, and transaction records.'
+                            : 'Review completed sales, totals, and transaction records.';
                     } elseif (request()->is('sales*') || request()->is('delivery*')) {
                         $moduleTitle = 'Sales Management';
                         $moduleDescription = 'Record sales, deliveries, and customer orders.';
@@ -1706,28 +1768,27 @@
                 <div class="app-date-time-spacer no-print" aria-hidden="true"></div>
             @endauth
 
-        @if(session('success') && !request()->routeIs('sales.create', 'sales.index'))
+        @if(session('success'))
 
-            <div class="alert">
-                {{ session('success') }}
+            <div class="success-toast no-print" data-success-toast role="status" aria-live="polite" aria-atomic="true">
+                <span aria-hidden="true">✓</span>
+                <span>{{ session('success') }}</span>
             </div>
 
         @endif
 
 
-        @if(session('error'))
+        @if(session('error') || $errors->any())
 
-            <div class="alert err">
-                {{ session('error') }}
-            </div>
-
-        @endif
-
-
-        @if($errors->any())
-
-            <div class="alert err">
-                {{ $errors->first() }}
+            <div class="error-toast no-print" data-error-toast role="alert" aria-atomic="true">
+                <div class="error-toast-header">
+                    <strong>Please check the details</strong>
+                </div>
+                <ul>
+                    @foreach(array_unique(array_merge(session('error') ? [session('error')] : [], $errors->all())) as $message)
+                        <li>{{ $message }}</li>
+                    @endforeach
+                </ul>
             </div>
 
         @endif
@@ -2008,7 +2069,142 @@
     @endauth
 
     <script>
+        function autoDismissSuccessToast() {
+            const toast = document.querySelector('[data-success-toast]');
+
+            if (!toast) {
+                return;
+            }
+
+            window.setTimeout(() => toast.remove(), 1000);
+        }
+
+        function autoDismissErrorToast() {
+            const toast = document.querySelector('[data-error-toast]');
+
+            if (!toast) {
+                return;
+            }
+
+            window.setTimeout(() => toast.remove(), 3000);
+        }
+
+        function initializeFieldValidationWarnings() {
+            const fieldWarnings = new WeakMap();
+            let warningSequence = 0;
+            let firstInvalidField = null;
+            let focusPending = false;
+
+            function clearFieldWarning(field) {
+                const state = fieldWarnings.get(field);
+                if (!state) {
+                    return;
+                }
+
+                window.clearTimeout(state.timer);
+                state.warning.remove();
+                const descriptions = (field.getAttribute('aria-describedby') || '')
+                    .split(/\s+/).filter((id) => id && id !== state.warning.id);
+                if (descriptions.length) {
+                    field.setAttribute('aria-describedby', descriptions.join(' '));
+                } else {
+                    field.removeAttribute('aria-describedby');
+                }
+                if (state.originalInvalid === null) {
+                    field.removeAttribute('aria-invalid');
+                } else {
+                    field.setAttribute('aria-invalid', state.originalInvalid);
+                }
+                fieldWarnings.delete(field);
+            }
+
+            function showFieldWarning(field, message) {
+                let state = fieldWarnings.get(field);
+                if (!state) {
+                    const warning = document.createElement('div');
+                    warning.id = `field-validation-warning-${++warningSequence}`;
+                    warning.className = 'field-validation-warning no-print';
+                    warning.setAttribute('role', 'alert');
+                    warning.setAttribute('aria-atomic', 'true');
+                    const anchor = field.closest('.purchase-quantity-control, .conversion-builder') || field;
+                    anchor.insertAdjacentElement('afterend', warning);
+                    state = { warning, originalInvalid: field.getAttribute('aria-invalid'), timer: null };
+                    fieldWarnings.set(field, state);
+                    field.setAttribute('aria-invalid', 'true');
+                    const descriptions = field.getAttribute('aria-describedby');
+                    field.setAttribute('aria-describedby', [descriptions, warning.id].filter(Boolean).join(' '));
+                }
+
+                window.clearTimeout(state.timer);
+                state.warning.textContent = message;
+                state.timer = window.setTimeout(() => clearFieldWarning(field), 3000);
+            }
+
+            document.addEventListener('invalid', (event) => {
+                const field = event.target;
+                if (!field.matches('input, select, textarea')) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                const labels = Array.from(field.labels || []);
+                const nearbyLabel = field.closest('.field')?.querySelector('label');
+                if (!labels.length && nearbyLabel) {
+                    labels.push(nearbyLabel);
+                }
+
+                const label = labels
+                    .map((label) => label.textContent.replace(/\s+/g, ' ').trim())
+                    .join(' ')
+                    || field.getAttribute('aria-label')
+                    || field.name?.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+                    || 'This field';
+                let message = field.validationMessage || `${label} is invalid.`;
+
+                if (field.validity.customError) {
+                    message = field.validationMessage;
+                } else if (field.validity.valueMissing) {
+                    message = `${label} is required.`;
+                } else if (field.validity.patternMismatch && field.title) {
+                    message = field.title;
+                } else if (field.validity.typeMismatch && field.type === 'email') {
+                    message = `${label} must be a valid email address.`;
+                }
+
+                showFieldWarning(field, message);
+                firstInvalidField ??= field;
+
+                if (!focusPending) {
+                    focusPending = true;
+                    window.setTimeout(() => {
+                        const fieldToFocus = firstInvalidField;
+                        firstInvalidField = null;
+                        focusPending = false;
+                        fieldToFocus.focus();
+                    }, 0);
+                }
+            }, true);
+
+            function clearCorrectedWarning(event) {
+                const field = event.target;
+                if (field.matches('input, select, textarea') && (field.validity.valid || !field.willValidate)) {
+                    clearFieldWarning(field);
+                }
+            }
+
+            document.addEventListener('input', clearCorrectedWarning);
+            document.addEventListener('change', clearCorrectedWarning);
+            document.addEventListener('reset', (event) => {
+                event.target.querySelectorAll('input, select, textarea').forEach(clearFieldWarning);
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            autoDismissSuccessToast();
+            autoDismissErrorToast();
+            initializeFieldValidationWarnings();
+
             document.querySelectorAll('input[pattern="\\d{11}"], input[pattern="09\\d{9}"], input[data-digits-only], input[name*="contact_number"]').forEach((input) => {
                 input.addEventListener('input', () => {
                     const maxLength = Number(input.getAttribute('maxlength')) || 11;

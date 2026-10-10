@@ -27,7 +27,10 @@ class ProductUnitController extends Controller
                 'required',
                 'numeric',
                 'gt:0',
+                'decimal:0,8',
             ],
+        ], [
+            'conversion_factor.decimal' => 'Conversion factor can only have up to 8 decimal places.',
         ]);
 
         $exists = $product->productUnits()
@@ -53,7 +56,7 @@ class ProductUnitController extends Controller
             );
         }
 
-        $conversionFactor = (float) $data['conversion_factor'];
+        $conversionFactor = $data['conversion_factor'];
 
         $productUnit = $product->productUnits()->create([
             'unit_id' => $data['unit_id'],
@@ -103,10 +106,13 @@ class ProductUnitController extends Controller
                 'required',
                 'numeric',
                 'gt:0',
+                'decimal:0,8',
             ],
+        ], [
+            'conversion_factor.decimal' => 'Conversion factor can only have up to 8 decimal places.',
         ]);
 
-        $conversionFactor = (float) $data['conversion_factor'];
+        $conversionFactor = $data['conversion_factor'];
 
         if ($productUnit->is_base_unit) {
             $productUnit->update([

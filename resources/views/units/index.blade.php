@@ -11,18 +11,24 @@
     <a href="{{ route('inventory.index') }}">Inventory</a>
 </div>
 
-<div class="units-layout">
+<div
+    class="units-modal-overlay {{ $errors->any() && old('_method') !== 'PUT' ? 'show' : '' }}"
+    id="addUnitFormModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="addUnitFormTitle"
+>
 
     {{-- =====================================================
          ADD UNIT
     ====================================================== --}}
 
-    <div class="card units-form-card">
+    <div class="units-modal unit-form-modal">
 
         <div class="units-card-heading">
 
             <div>
-                <h2>Add Unit</h2>
+                <h2 id="addUnitFormTitle">Add Unit</h2>
 
                 <p>
                     Create a unit that can be assigned to construction materials.
@@ -144,18 +150,22 @@
             </div>
 
 
-            <button
-                type="button"
-                class="btn primary"
-                id="openAddUnitModal"
-            >
-                Add Unit
-            </button>
+            <div class="units-modal-actions">
+                <button type="button" class="btn light" id="cancelAddUnitForm">
+                    Cancel
+                </button>
+                <button type="submit" class="btn primary" id="reviewAddUnit">
+                    Add Unit
+                </button>
+            </div>
 
         </form>
 
     </div>
 
+</div>
+
+<div class="units-layout">
 
     {{-- =====================================================
          AVAILABLE UNITS
@@ -178,15 +188,20 @@
             </div>
 
 
-            <div class="unit-count">
+            <div class="units-list-heading-actions">
+                <div class="unit-count">
 
-                {{ $units->count() }}
+                    {{ $units->count() }}
 
-                {{ $units->count() === 1
-                    ? 'unit'
-                    : 'units'
-                }}
+                    {{ $units->count() === 1
+                        ? 'unit'
+                        : 'units'
+                    }}
 
+                </div>
+                <button type="button" class="btn primary" id="openAddUnitFormModal">
+                    + Add Unit
+                </button>
             </div>
 
         </div>
@@ -668,16 +683,13 @@ body {
     display: grid;
     flex: 1 1 auto;
 
-    grid-template-columns:
-        minmax(640px, 1.45fr)
-        minmax(360px, .85fr);
+    grid-template-columns: minmax(0, 1fr);
 
     gap: 20px;
     min-height: 0;
 }
 
 
-.units-form-card,
 .units-list-card {
     margin-bottom: 0;
     min-height: 0;
@@ -686,12 +698,6 @@ body {
 .units-list-card {
     display: flex;
     flex-direction: column;
-    order: 1;
-}
-
-.units-form-card {
-    order: 2;
-    overflow: auto;
 }
 
 
@@ -725,8 +731,14 @@ body {
     justify-content: space-between;
 
     gap: 15px;
+    flex-wrap: wrap;
 }
 
+.units-list-heading-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
 
 .unit-count {
     padding: 6px 10px;
@@ -749,16 +761,7 @@ body {
    FORM
 ========================================================= */
 
-.units-form-card .input {
-    height: 41px;
-
-    background: #f5f7fb;
-
-    font-size: 12px;
-}
-
-
-.units-form-card select.input {
+.unit-form-modal select.input {
     cursor: pointer;
 }
 
@@ -968,7 +971,7 @@ body {
 
     inset: 0;
 
-    z-index: 100500;
+    z-index: 10000;
 
     display: none;
 
@@ -990,6 +993,9 @@ body {
 
 .units-modal {
     width: 100%;
+    box-sizing: border-box;
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
 
     max-width: 430px;
 
@@ -1244,10 +1250,32 @@ document.addEventListener(
             );
 
 
-        const openAddButton =
-            document.getElementById(
-                'openAddUnitModal'
-            );
+        const addFormModal = document.getElementById('addUnitFormModal');
+        const openAddFormButton = document.getElementById('openAddUnitFormModal');
+        const cancelAddFormButton = document.getElementById('cancelAddUnitForm');
+
+        function openAddFormModal() {
+            addFormModal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+            document.getElementById('unit_name').focus();
+        }
+
+        function closeAddFormModal() {
+            closeModal(addFormModal);
+            openAddFormButton.focus();
+        }
+
+        function returnToAddForm() {
+            closeModal(addModal);
+            openAddFormModal();
+        }
+
+        openAddFormButton.addEventListener('click', openAddFormModal);
+        cancelAddFormButton.addEventListener('click', closeAddFormModal);
+
+        if (addFormModal.classList.contains('show')) {
+            openAddFormModal();
+        }
 
 
         const cancelAddButton =
@@ -1262,9 +1290,10 @@ document.addEventListener(
             );
 
 
-        openAddButton.addEventListener(
-            'click',
-            function () {
+        addForm.addEventListener(
+            'submit',
+            function (event) {
+                event.preventDefault();
 
                 if (!addForm.reportValidity()) {
                     return;
@@ -1313,6 +1342,10 @@ document.addEventListener(
                     typeText;
 
 
+                addFormModal.classList.remove('show');
+                confirmAddButton.disabled = false;
+                confirmAddButton.textContent = 'Add Unit';
+
                 addModal.classList.add(
                     'show'
                 );
@@ -1320,6 +1353,8 @@ document.addEventListener(
 
                 document.body.style.overflow =
                     'hidden';
+
+                confirmAddButton.focus();
 
             }
         );
@@ -1329,9 +1364,7 @@ document.addEventListener(
             'click',
             function () {
 
-                closeModal(
-                    addModal
-                );
+                returnToAddForm();
 
             }
         );
@@ -1340,6 +1373,9 @@ document.addEventListener(
         confirmAddButton.addEventListener(
             'click',
             function () {
+                if (confirmAddButton.disabled) {
+                    return;
+                }
 
                 confirmAddButton.disabled =
                     true;
@@ -1686,15 +1722,19 @@ document.addEventListener(
         }
 
 
+        addFormModal.addEventListener('click', function (event) {
+            if (event.target === addFormModal) {
+                closeAddFormModal();
+            }
+        });
+
         addModal.addEventListener(
             'click',
             function (event) {
 
                 if (event.target === addModal) {
 
-                    closeModal(
-                        addModal
-                    );
+                    returnToAddForm();
 
                 }
 
@@ -1747,9 +1787,10 @@ document.addEventListener(
                     )
                 ) {
 
-                    closeModal(
-                        addModal
-                    );
+                    returnToAddForm();
+
+                } else if (addFormModal.classList.contains('show')) {
+                    closeAddFormModal();
 
                 }
 

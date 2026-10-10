@@ -11,7 +11,7 @@
         <h1>Edit Supplier</h1>
 
         <div class="muted">
-            Update supplier information used in purchasing
+            All supplier details are required. Products Offered is optional.
         </div>
 
     </div>
@@ -49,9 +49,10 @@
                     class="input"
                     name="supplier_name"
                     value="{{ old('supplier_name', $supplier->supplier_name) }}"
-                    maxlength="150"
+                    maxlength="60"
                     required
                 >
+                <small class="muted">Maximum 60 characters.</small>
 
             </div>
 
@@ -67,8 +68,10 @@
                     class="input"
                     name="contact_person"
                     value="{{ old('contact_person', $supplier->contact_person) }}"
-                    maxlength="150"
+                    maxlength="60"
+                    required
                 >
+                <small class="muted">Maximum 60 characters.</small>
 
             </div>
 
@@ -80,11 +83,19 @@
                 </label>
 
                 <input
-                    type="text"
+                    type="tel"
                     class="input"
                     name="contact_number"
                     value="{{ old('contact_number', $supplier->contact_number) }}"
-                    maxlength="50"
+                    maxlength="11"
+                    minlength="11"
+                    inputmode="numeric"
+                    autocomplete="tel"
+                    pattern="09[0-9]{9}"
+                    data-digits-only
+                    placeholder="09XXXXXXXXX"
+                    title="Contact number must start with 09 and be exactly 11 digits."
+                    required
                 >
 
             </div>
@@ -101,8 +112,12 @@
                     class="input"
                     name="email"
                     value="{{ old('email', $supplier->email) }}"
-                    maxlength="150"
+                    maxlength="60"
+                    pattern="[^\s@]+@([gG][mM][aA][iI][lL]|[yY][aA][hH][oO][oO]|[oO][uU][tT][lL][oO][oO][kK])\.[cC][oO][mM]"
+                    title="Use an email ending with @gmail.com, @yahoo.com, or @outlook.com."
+                    required
                 >
+                <small class="muted">Gmail, Yahoo or Outlook only. Maximum 60 characters.</small>
 
             </div>
 
@@ -119,8 +134,10 @@
                 class="input"
                 name="address"
                 rows="4"
-                maxlength="1000"
+                maxlength="200"
+                required
             >{{ old('address', $supplier->address) }}</textarea>
+            <small class="muted">Maximum 200 characters.</small>
 
         </div>
 

@@ -5,29 +5,6 @@
 @section('content')
 @include('sales.partials.module-tabs', ['activeSalesTab' => 'pending'])
 
-@if(session('success'))
-    <div class="alert success" style="margin-bottom:16px;">
-        {{ session('success') }}
-    </div>
-@endif
-
-@if(session('error'))
-    <div class="alert danger" style="margin-bottom:16px;">
-        {{ session('error') }}
-    </div>
-@endif
-
-@if($errors->any())
-    <div class="alert danger" style="margin-bottom:16px;">
-        <strong>Please check the delivery form.</strong>
-        <ul style="margin:8px 0 0 18px;">
-            @foreach($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
-@endif
-
 <form method="GET" action="{{ route('sales.index') }}" class="toolbar sales-filter-bar" data-auto-filter>
     <div class="sales-filter-controls">
         <input
@@ -129,18 +106,18 @@
                                     </div>
                                 </div>
 
-                                <div class="delivery-modal" id="cancelDeliveryModal{{ $sale->sale_id }}">
+                                <div class="delivery-modal" id="cancelDeliveryModal{{ $sale->sale_id }}" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="cancelDeliveryTitle{{ $sale->sale_id }}">
                                     <div class="delivery-modal-card">
                                         <div class="delivery-modal-head">
                                             <div>
-                                                <h2>Cancelled Delivery</h2>
+                                                <h2 id="cancelDeliveryTitle{{ $sale->sale_id }}">Cancel Delivery</h2>
                                                 <div class="muted">SALE-{{ str_pad($sale->sale_id, 4, '0', STR_PAD_LEFT) }}</div>
                                             </div>
 
-                                            <button type="button" class="delivery-modal-close" data-close-modal>&times;</button>
+                                            <button type="button" class="delivery-modal-close" data-close-modal aria-label="Close cancellation">&times;</button>
                                         </div>
 
-                                        <form method="POST" action="{{ route('sales.cancel-delivery', $sale) }}" class="cancel-delivery-form" onsubmit="return confirm('Cancel this delivery? All products will be returned to inventory.')">
+                                        <form method="POST" action="{{ route('sales.cancel-delivery', $sale) }}" class="cancel-delivery-form" id="cancelDeliveryForm{{ $sale->sale_id }}" data-cancel-confirm-modal="confirmCancellationModal{{ $sale->sale_id }}">
                                             @csrf
                                             @method('PATCH')
 
@@ -154,6 +131,7 @@
                                                 class="input"
                                                 rows="5"
                                                 required
+                                                data-initial-focus
                                                 placeholder="Enter the cancellation reason..."
                                             ></textarea>
 
@@ -163,9 +141,28 @@
 
                                             <div class="delivery-modal-actions">
                                                 <button type="button" class="btn light" data-close-modal>Go Back</button>
-                                                <button class="btn danger">Submit Cancellation</button>
+                                                <button type="submit" class="btn danger">Submit Cancellation</button>
                                             </div>
                                         </form>
+                                    </div>
+                                </div>
+
+                                <div class="delivery-modal" id="confirmCancellationModal{{ $sale->sale_id }}" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="confirmCancellationTitle{{ $sale->sale_id }}" aria-describedby="confirmCancellationMessage{{ $sale->sale_id }}" data-return-modal="cancelDeliveryModal{{ $sale->sale_id }}">
+                                    <div class="delivery-modal-card">
+                                        <div class="delivery-modal-head">
+                                            <div>
+                                                <h2 id="confirmCancellationTitle{{ $sale->sale_id }}">Cancel this delivery?</h2>
+                                                <div class="muted">SALE-{{ str_pad($sale->sale_id, 4, '0', STR_PAD_LEFT) }}</div>
+                                            </div>
+                                            <button type="button" class="delivery-modal-close" data-close-modal aria-label="Close confirmation">&times;</button>
+                                        </div>
+                                        <div class="delivery-confirm-body" id="confirmCancellationMessage{{ $sale->sale_id }}">
+                                            <p>All products in this sale will be returned to inventory.</p>
+                                        </div>
+                                        <div class="delivery-modal-actions">
+                                            <button type="button" class="btn light" data-close-modal data-initial-focus>Go Back</button>
+                                            <button type="button" class="btn danger" data-confirm-cancellation="cancelDeliveryForm{{ $sale->sale_id }}">Yes, Cancel Delivery</button>
+                                        </div>
                                     </div>
                                 </div>
                             @else
@@ -404,8 +401,27 @@
 document.addEventListener('DOMContentLoaded', function () {
     let activeTrigger = null;
 
+    function openModal(modal) {
+        document.querySelectorAll('.delivery-modal.open').forEach(function (openModal) {
+            openModal.classList.remove('open');
+            openModal.setAttribute('aria-hidden', 'true');
+        });
+
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+        const initialFocus = modal.querySelector('[data-initial-focus]') ?? modal.querySelector('[data-close-modal]');
+        if (initialFocus) {
+            initialFocus.focus();
+        }
+    }
+
     function closeModal(modal) {
-        if (modal.querySelector('[data-delivery-confirm-form][data-submitting="true"]')) {
+        if (modal.dataset.submitting === 'true' || modal.querySelector('form[data-submitting="true"]')) {
+            return;
+        }
+
+        if (modal.dataset.returnModal) {
+            openModal(document.getElementById(modal.dataset.returnModal));
             return;
         }
 
@@ -425,12 +441,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 if (modal) {
                     activeTrigger = button;
-                    modal.classList.add('open');
-                    modal.setAttribute('aria-hidden', 'false');
-                    const initialFocus = modal.querySelector('[data-initial-focus]') ?? modal.querySelector('[data-close-modal]');
-                    if (initialFocus) {
-                        initialFocus.focus();
-                    }
+                    openModal(modal);
                 }
             });
         });
@@ -477,6 +488,57 @@ document.addEventListener('DOMContentLoaded', function () {
                 first.focus();
             }
         }
+    });
+
+    document.querySelectorAll('[data-cancel-confirm-modal]').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (form.dataset.submitting === 'true') {
+                event.preventDefault();
+                return;
+            }
+
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                openModal(form.closest('.delivery-modal'));
+                form.reportValidity();
+                return;
+            }
+
+            const confirmationModal = document.getElementById(form.dataset.cancelConfirmModal);
+            if (form.dataset.cancellationConfirmed !== 'true') {
+                event.preventDefault();
+                openModal(confirmationModal);
+                return;
+            }
+
+            form.dataset.submitting = 'true';
+            confirmationModal.dataset.submitting = 'true';
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Cancelling...';
+            const confirmButton = confirmationModal.querySelector('[data-confirm-cancellation]');
+            confirmButton.disabled = true;
+            confirmButton.textContent = 'Cancelling...';
+        });
+    });
+
+    document.querySelectorAll('[data-confirm-cancellation]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const form = document.getElementById(button.dataset.confirmCancellation);
+            if (form.dataset.submitting === 'true') {
+                return;
+            }
+
+            if (!form.checkValidity()) {
+                openModal(form.closest('.delivery-modal'));
+                form.reportValidity();
+                return;
+            }
+
+            form.dataset.cancellationConfirmed = 'true';
+            form.requestSubmit();
+            delete form.dataset.cancellationConfirmed;
+        });
     });
 
     document.querySelectorAll('[data-delivery-confirm-form]').forEach(function (form) {

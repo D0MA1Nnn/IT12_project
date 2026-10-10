@@ -224,31 +224,34 @@ class SupplierController extends Controller
             'supplier_name' => [
                 'required',
                 'string',
-                'max:150',
+                'max:60',
             ],
 
             'contact_person' => [
-                'nullable',
+                'required',
                 'string',
-                'max:150',
+                'max:60',
             ],
 
             'contact_number' => [
-                'nullable',
+                'required',
                 'string',
-                'regex:/^\d{11}$/',
+                'regex:/\A09[0-9]{9}\z/',
             ],
 
             'email' => [
-                'nullable',
+                'bail',
+                'required',
+                'string',
                 'email',
-                'max:150',
+                'max:60',
+                'regex:/\A[^\s@]+@(gmail|yahoo|outlook)\.com\z/i',
             ],
 
             'address' => [
-                'nullable',
+                'required',
                 'string',
-                'max:1000',
+                'max:200',
             ],
 
             'product_ids' => [
@@ -261,7 +264,17 @@ class SupplierController extends Controller
                 'exists:products,product_id',
             ],
         ], [
-            'contact_number.regex' => 'Contact number must contain exactly 11 numbers.',
+            'supplier_name.required' => 'Supplier name is required.',
+            'contact_person.required' => 'Contact person is required.',
+            'contact_number.required' => 'Phone is required.',
+            'email.required' => 'Email is required.',
+            'address.required' => 'Address is required.',
+            'contact_number.regex' => 'Contact number must start with 09 and contain exactly 11 digits.',
+            'contact_person.max' => 'Contact person must not be longer than 60 characters.',
+            'supplier_name.max' => 'Supplier name must not be longer than 60 characters.',
+            'email.max' => 'Email must not be longer than 60 characters.',
+            'email.regex' => 'Email must end with @gmail.com, @yahoo.com, or @outlook.com.',
+            'address.max' => 'Address must not be longer than 200 characters.',
         ]);
     }
 

@@ -8,16 +8,16 @@ use App\Models\ProductUnit;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Supplier;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class PurchaseController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): View
     {
         $search = trim((string) $request->query('search', ''));
-        $status = (string) $request->query('status', 'all');
         $units = ProductUnit::with(['product', 'unit'])->where('is_active', true)->whereHas('product', fn ($q) => $q->where('is_active', true))->get();
         $suppliers = Supplier::with('products')->where('is_active', true)->orderBy('supplier_name')->get();
         $purchaseQuery = Purchase::with(['supplier', 'user', 'items.productUnit.product', 'items.productUnit.unit'])
@@ -36,15 +36,6 @@ class PurchaseController extends Controller
             });
         }
 
-        if ($status !== 'all') {
-            $purchaseQuery->where('status', strtoupper($status));
-        }
-
-        $statuses = Purchase::query()
-            ->select('status')
-            ->distinct()
-            ->orderBy('status')
-            ->pluck('status');
         $unitData = $units->map(function ($u) {
             return [
                 'id' => $u->product_unit_id,
@@ -61,7 +52,7 @@ class PurchaseController extends Controller
             $supplier->supplier_id => $supplier->products->pluck('product_id')->values()->all(),
         ])->all();
 
-        return view('purchases.index', ['purchases' => $purchaseQuery->get(), 'suppliers' => $suppliers, 'units' => $units, 'unitData' => $unitData, 'supplierProducts' => $supplierProducts, 'search' => $search, 'status' => $status, 'statuses' => $statuses]);
+        return view('purchases.index', ['purchases' => $purchaseQuery->get(), 'suppliers' => $suppliers, 'units' => $units, 'unitData' => $unitData, 'supplierProducts' => $supplierProducts, 'search' => $search]);
     }
 
     public function create()
@@ -102,7 +93,7 @@ class PurchaseController extends Controller
 
                 $sub = round($i['quantity'] * $i['unit_cost'], 2);
                 PurchaseItem::create(['purchase_id' => $p->purchase_id, 'product_unit_id' => $pu->product_unit_id, 'quantity' => $i['quantity'], 'unit_cost' => $i['unit_cost'], 'subtotal' => $sub]);
-                $base = $i['quantity'] * $pu->conversion_factor;
+                $base = round($i['quantity'] * $pu->conversion_factor, 8);
                 $inv = Inventory::firstOrCreate(['product_id' => $pu->product_id], ['quantity_on_hand' => 0, 'reorder_level' => 0]);
                 $inv->increment('quantity_on_hand', $base);
                 $inv->update(['last_updated' => now()]);

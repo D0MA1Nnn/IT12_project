@@ -1,31 +1,32 @@
 @extends('layouts.app')
 
-@section('title', 'Sales Report')
+@section('title', 'Report')
 
 @section('content')
 <div class="print-report-title">
-    <h1>Sales Report</h1>
+    <h1>Report — {{ $isPurchaseReport ? 'Purchases List' : 'Sales List' }}</h1>
     <p>
         Generated {{ now()->format('M d, Y g:i A') }}
     </p>
 </div>
 
-<div class="sales-report-summary">
+<div class="sales-report-summary {{ $isPurchaseReport ? 'purchase-report-summary' : '' }}">
     <div class="card sales-report-stat">
-        <span class="stat-label">Completed Sales</span>
-        <strong>{{ $totalSales }}</strong>
+        <span class="stat-label">{{ $isPurchaseReport ? 'Completed Purchases' : 'Completed Sales' }}</span>
+        <strong>{{ $totalRecords }}</strong>
     </div>
 
     <div class="card sales-report-stat">
-        <span class="stat-label">Total Sales Amount</span>
+        <span class="stat-label">{{ $isPurchaseReport ? 'Total Purchase Amount' : 'Total Sales Amount' }}</span>
         <strong>₱{{ number_format($totalAmount, 2) }}</strong>
     </div>
 
     <div class="card sales-report-stat">
-        <span class="stat-label">Average Sale</span>
-        <strong>₱{{ number_format($averageSale, 2) }}</strong>
+        <span class="stat-label">{{ $isPurchaseReport ? 'Average Purchase' : 'Average Sale' }}</span>
+        <strong>₱{{ number_format($averageAmount, 2) }}</strong>
     </div>
 
+    @unless($isPurchaseReport)
     <div class="card sales-report-stat sales-report-split">
         <div>
             <span class="stat-label">Walk-in</span>
@@ -37,6 +38,7 @@
             <strong>{{ $deliverySales }}</strong>
         </div>
     </div>
+    @endunless
 </div>
 
 <form method="GET" action="{{ route('sales.report') }}" class="toolbar sales-report-filter no-print" data-auto-filter>
@@ -45,55 +47,66 @@
         <input
             name="q"
             value="{{ old('q', request('q')) }}"
-            placeholder="Search sale reference or user..."
+            placeholder="{{ $isPurchaseReport ? 'Search purchase reference, supplier or user...' : 'Search sale reference or user...' }}"
         >
     </div>
+    <select name="report_type" class="sales-report-list" aria-label="Report list">
+        <option value="sales" @selected($reportType === 'sales')>Sales List</option>
+        @if(auth()->user()->role === 'OWNER')
+            <option value="purchases" @selected($reportType === 'purchases')>Purchases List</option>
+        @endif
+    </select>
 
-    <label class="sales-report-date">
-        <span>From</span>
+    <div class="sales-report-date">
+        <label for="report-from">From</label>
         <input
             type="date"
+            id="report-from"
             name="from"
             value="{{ old('from', request('from')) }}"
             max="{{ now()->toDateString() }}"
             title="Use a valid date only."
         >
-    </label>
+        <button type="button" class="report-date-picker" data-report-date-picker="report-from" aria-label="Choose From date">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 11h18M8 15h2M14 15h2M8 18h2"></path></svg>
+        </button>
+    </div>
 
-    <label class="sales-report-date">
-        <span>To</span>
+    <div class="sales-report-date">
+        <label for="report-to">To</label>
         <input
             type="date"
+            id="report-to"
             name="to"
             value="{{ old('to', request('to')) }}"
             max="{{ now()->toDateString() }}"
             title="Use a valid date only."
         >
-    </label>
+        <button type="button" class="report-date-picker" data-report-date-picker="report-to" aria-label="Choose To date">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 11h18M8 15h2M14 15h2M8 18h2"></path></svg>
+        </button>
+    </div>
 
     <div class="sales-report-filter-actions">
-        @if(request()->hasAny(['q', 'from', 'to']))
-            <a class="btn light" href="{{ route('sales.report') }}">Clear</a>
-        @endif
-
-        <button type="button" class="btn primary sales-report-print" onclick="window.print()">
+        <button type="button" class="btn primary sales-report-print" data-report-print-url="{{ route('sales.report', ['report_type' => $reportType, 'q' => $filters['q'] ?? null, 'from' => $filters['from'] ?? null, 'to' => $filters['to'] ?? null, 'print' => 1]) }}">
             Print Report
         </button>
     </div>
 </form>
+<div data-report-print-error role="alert" class="no-print" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;max-width:calc(100vw - 32px);padding:18px 22px;border:1px solid #fecaca;border-radius:12px;background:#fff1f2;color:#b91c1c;box-shadow:0 12px 30px rgba(15,23,42,.12)"></div>
 
 <div class="card sales-report-table">
     <div class="sales-report-table-title">
         <div>
-            <h3>Sales List</h3>
+            <h3>{{ $isPurchaseReport ? 'Purchases List' : 'Sales List' }}</h3>
             <p>
                 @if(request()->filled('from') || request()->filled('to'))
-                    Showing filtered sales from
+                    Showing filtered {{ $isPurchaseReport ? 'purchases' : 'sales' }} from
                     {{ request('from') ? \Carbon\Carbon::parse(request('from'))->format('M d, Y') : 'the beginning' }}
                     to
                     {{ request('to') ? \Carbon\Carbon::parse(request('to'))->format('M d, Y') : 'today' }}.
                 @else
-                    Showing all sales.
+                    Showing {{ request()->filled('q') ? 'matching' : 'all' }} {{ $isPurchaseReport ? 'purchases' : 'sales' }}.
                 @endif
             </p>
         </div>
@@ -105,67 +118,83 @@
                 <tr>
                     <th>Reference</th>
                     <th>Date / Time</th>
+                    @if($isPurchaseReport)
+                        <th>Supplier</th>
+                    @endif
                     <th>Items</th>
                     <th>Total Amount</th>
-                    <th>Delivery</th>
+                    @unless($isPurchaseReport)
+                        <th>Delivery</th>
+                    @endunless
                     <th>Recorded By</th>
-                    <th class="no-print">Invoice</th>
+                    @if($isPurchaseReport)
+                        <th>Status</th>
+                    @endif
+                    <th class="no-print">Action</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse($sales as $sale)
+                @forelse($records as $record)
                     <tr>
-                        <td><strong>SALE-{{ str_pad($sale->sale_id, 4, '0', STR_PAD_LEFT) }}</strong></td>
-                        <td>{{ $sale->sale_date->format('m/d/Y g:i A') }}</td>
-                        <td>{{ $sale->items->count() }}</td>
-                        <td><strong>₱{{ number_format((float) $sale->total_amount, 2) }}</strong></td>
+                        <td><strong>{{ $isPurchaseReport ? 'PUR-' : 'SALE-' }}{{ str_pad($record->getKey(), 4, '0', STR_PAD_LEFT) }}</strong></td>
+                        <td>{{ ($isPurchaseReport ? $record->purchase_date : $record->sale_date)->format('m/d/Y g:i A') }}</td>
+                        @if($isPurchaseReport)
+                            <td>{{ $record->supplier?->supplier_name ?? '—' }}</td>
+                        @endif
+                        <td>{{ $record->items_count }}</td>
+                        <td><strong>₱{{ number_format((float) $record->total_amount, 2) }}</strong></td>
+                        @unless($isPurchaseReport)
                         <td>
-                            <span class="delivery-badge {{ $sale->delivery_required ? 'required' : 'walk-in' }}">
-                                {{ $sale->delivery_required ? 'Required' : 'Walk-in' }}
+                            <span class="delivery-badge {{ $record->delivery_required ? 'required' : 'walk-in' }}">
+                                {{ $record->delivery_required ? 'Required' : 'Walk-in' }}
                             </span>
                         </td>
-                        <td>{{ $sale->user?->username ?? '—' }}</td>
-                        <td class="no-print"><a class="btn light small" href="{{ route('sales.receipt', $sale) }}">View Invoice</a></td>
+                        @endunless
+                        <td>{{ $record->user?->username ?? '—' }}</td>
+                        @if($isPurchaseReport)
+                            <td>{{ $record->status }}</td>
+                        @endif
+                        <td class="no-print"><button type="button" class="btn light small" data-view-report="reportDetailsModal{{ $record->getKey() }}" aria-haspopup="dialog" aria-controls="reportDetailsModal{{ $record->getKey() }}">View</button></td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="muted" style="text-align:center;padding:30px">No sales found.</td>
+                        <td colspan="{{ $isPurchaseReport ? 8 : 7 }}" class="muted" style="text-align:center;padding:30px">No {{ $isPurchaseReport ? 'purchases' : 'sales' }} found.</td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
     </div>
 
-    @if($sales->hasPages())
+    @if($records->hasPages())
         @php
-            $currentPage = $sales->currentPage();
-            $lastPage = $sales->lastPage();
+            $currentPage = $records->currentPage();
+            $lastPage = $records->lastPage();
             $startPage = max(1, min($currentPage - 1, $lastPage - 2));
             $endPage = min($lastPage, $startPage + 2);
         @endphp
 
         <div class="sales-report-pagination no-print">
             <div class="muted">
-                Showing {{ $sales->firstItem() }} to {{ $sales->lastItem() }} of {{ $sales->total() }} results
+                Showing {{ $records->firstItem() }} to {{ $records->lastItem() }} of {{ $records->total() }} results
             </div>
 
             <div class="sales-report-page-links">
-                @if($sales->onFirstPage())
+                @if($records->onFirstPage())
                     <span class="sales-report-page-link disabled-link">&lsaquo; Previous</span>
                 @else
-                    <a class="sales-report-page-link" href="{{ $sales->previousPageUrl() }}">&lsaquo; Previous</a>
+                    <a class="sales-report-page-link" href="{{ $records->previousPageUrl() }}">&lsaquo; Previous</a>
                 @endif
 
                 @for($page = $startPage; $page <= $endPage; $page++)
                     @if($page === $currentPage)
                         <span class="sales-report-page-link active">{{ $page }}</span>
                     @else
-                        <a class="sales-report-page-link" href="{{ $sales->url($page) }}">{{ $page }}</a>
+                        <a class="sales-report-page-link" href="{{ $records->url($page) }}">{{ $page }}</a>
                     @endif
                 @endfor
 
-                @if($sales->hasMorePages())
-                    <a class="sales-report-page-link" href="{{ $sales->nextPageUrl() }}">Next &rsaquo;</a>
+                @if($records->hasMorePages())
+                    <a class="sales-report-page-link" href="{{ $records->nextPageUrl() }}">Next &rsaquo;</a>
                 @else
                     <span class="sales-report-page-link disabled-link">Next &rsaquo;</span>
                 @endif
@@ -173,6 +202,22 @@
         </div>
     @endif
 </div>
+
+@foreach($records as $record)
+    <div class="report-modal-overlay no-print" id="reportDetailsModal{{ $record->getKey() }}" data-report-details-modal role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="reportDetailsTitle{{ $record->getKey() }}">
+        <div class="report-modal">
+            <div class="report-modal-header">
+                <h2 id="reportDetailsTitle{{ $record->getKey() }}">{{ $isPurchaseReport ? 'Purchase Details' : 'Sale Details' }}</h2>
+                <button type="button" class="btn light" data-close-report-details aria-label="Close details">&times;</button>
+            </div>
+            <div class="report-modal-body">
+                @include('sales.report-details', ['record' => $record, 'isPurchaseReport' => $isPurchaseReport])
+            </div>
+            <div class="report-modal-footer"><button type="button" class="btn light" data-close-report-details>Close</button></div>
+        </div>
+    </div>
+@endforeach
+@include('sales.report-details-styles')
 
 <style>
 html,
@@ -204,7 +249,7 @@ body {
 .sales-report-filter {
     flex: 0 0 auto;
     display: grid !important;
-    grid-template-columns: minmax(260px, 1fr) minmax(170px, 220px) minmax(170px, 220px) auto !important;
+    grid-template-columns: minmax(180px, 1fr) minmax(145px, 180px) minmax(190px, 210px) minmax(190px, 210px) auto !important;
     gap: 12px;
     margin-bottom: 16px;
     padding: 12px;
@@ -217,7 +262,8 @@ body {
 }
 
 .sales-report-search,
-.sales-report-date {
+.sales-report-date,
+.sales-report-list {
     height: 44px;
     display: flex;
     align-items: center;
@@ -229,20 +275,37 @@ body {
     background: #f8fafc;
 }
 
+.sales-report-list {
+    width: 100%;
+    min-width: 0;
+    color: #0f172a;
+    font: inherit;
+}
+
 .sales-report-search span,
-.sales-report-date span {
+.sales-report-date label {
     flex: 0 0 auto;
     color: #64748b;
     font-size: 12px;
     font-weight: 700;
+    margin: 0;
 }
 
-.sales-report-search input,
-.sales-report-date input {
+.sales-report-search, .sales-report-date { min-width: 0; }
+.sales-report-date { gap: 6px; padding: 0 10px; }
+.report-date-picker { flex: 0 0 22px; width: 22px; height: 28px; display: inline-flex; align-items: center; justify-content: center; padding: 0; background: transparent; border: 0; color: #475569; cursor: pointer; }
+.report-date-picker svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.7; }
+.report-date-picker:focus-visible { outline: 2px solid #2468ee; border-radius: 4px; }
+.sales-report-date input::-webkit-calendar-picker-indicator { display: none; }
+
+.page-sales-report .sales-report-filter .sales-report-search input,
+.page-sales-report .sales-report-filter .sales-report-date input {
     width: 100% !important;
     min-width: 0 !important;
     max-width: none !important;
     flex: 1 1 auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
     border: 0;
     outline: 0;
     background: transparent;
@@ -275,6 +338,10 @@ body {
     padding: 18px 20px;
     border: 1px solid #edf1f6;
     box-shadow: none;
+}
+
+.purchase-report-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .stat-label {
@@ -401,9 +468,9 @@ body {
     opacity: .45;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
     .sales-report-filter {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr 1fr !important;
     }
 
     .sales-report-summary {
@@ -414,7 +481,7 @@ body {
 @media (max-width: 700px) {
     .sales-report-filter,
     .sales-report-summary {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
     }
 
     .sales-report-filter-actions {
@@ -477,6 +544,191 @@ body {
     .sales-report-summary {
         grid-template-columns: repeat(4, 1fr) !important;
     }
+
+    .purchase-report-summary {
+        grid-template-columns: repeat(3, 1fr) !important;
+    }
 }
 </style>
 @endsection
+
+@push('scripts')
+<script data-report-print-script>
+(() => {
+    const button = document.querySelector('[data-report-print-url]');
+    const error = document.querySelector('[data-report-print-error]');
+    if (!button) {
+        return;
+    }
+
+    const label = button.textContent;
+    let frame = null;
+    let loadingTimer = null;
+    let errorTimer = null;
+
+    function resetButton() {
+        clearTimeout(loadingTimer);
+        button.disabled = false;
+        button.textContent = label;
+        button.removeAttribute('aria-busy');
+    }
+
+    function removeFrame() {
+        frame?.remove();
+        frame = null;
+    }
+
+    function showPrintError() {
+        resetButton();
+        removeFrame();
+        button.focus();
+        if (error) {
+            error.textContent = 'Unable to open printing. Please try again.';
+            error.style.display = 'block';
+            clearTimeout(errorTimer);
+            errorTimer = setTimeout(() => error.style.display = 'none', 3000);
+        }
+    }
+
+    button.addEventListener('click', () => {
+        if (button.disabled) {
+            return;
+        }
+        removeFrame();
+        clearTimeout(errorTimer);
+        if (error) {
+            error.style.display = 'none';
+        }
+        button.disabled = true;
+        button.textContent = 'Preparing…';
+        button.setAttribute('aria-busy', 'true');
+
+        const printFrame = document.createElement('iframe');
+        frame = printFrame;
+        printFrame.style.display = 'none';
+        printFrame.title = 'Report printing';
+        printFrame.tabIndex = -1;
+        printFrame.setAttribute('aria-hidden', 'true');
+        printFrame.addEventListener('error', showPrintError, { once: true });
+        printFrame.addEventListener('load', () => {
+            if (frame !== printFrame) {
+                return;
+            }
+            try {
+                const printWindow = printFrame.contentWindow;
+                if (!printWindow.document.querySelector('[data-report-print-document]')) {
+                    showPrintError();
+                    return;
+                }
+                clearTimeout(loadingTimer);
+                printWindow.addEventListener('afterprint', () => {
+                    if (frame === printFrame) {
+                        resetButton();
+                        removeFrame();
+                        button.focus();
+                    }
+                }, { once: true });
+                printWindow.focus();
+                printWindow.print();
+                resetButton();
+            } catch {
+                showPrintError();
+            }
+        }, { once: true });
+        loadingTimer = setTimeout(showPrintError, 30000);
+        printFrame.src = button.dataset.reportPrintUrl;
+        document.body.appendChild(printFrame);
+    });
+})();
+</script>
+<script data-report-calendar-script>
+document.querySelectorAll('[data-report-date-picker]').forEach(button => {
+    button.addEventListener('click', () => {
+        const input = document.getElementById(button.dataset.reportDatePicker);
+        if (!input) {
+            return;
+        }
+        input.focus();
+        try {
+            if (typeof input.showPicker === 'function') {
+                input.showPicker();
+            } else {
+                input.click();
+            }
+        } catch {
+            input.click();
+        }
+    });
+});
+</script>
+<script data-report-details-script>
+(() => {
+    let activeModal = null;
+    let activeTrigger = null;
+    let previousOverflow = '';
+
+    function closeReportDetails() {
+        if (!activeModal) {
+            return;
+        }
+
+        activeModal.classList.remove('show');
+        activeModal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = previousOverflow;
+        activeModal = null;
+        activeTrigger?.focus();
+        activeTrigger = null;
+    }
+
+    document.querySelectorAll('[data-view-report]').forEach(button => {
+        button.addEventListener('click', () => {
+            const modal = document.getElementById(button.dataset.viewReport);
+            if (!modal) {
+                return;
+            }
+
+            closeReportDetails();
+            activeModal = modal;
+            activeTrigger = button;
+            previousOverflow = document.body.style.overflow;
+            modal.classList.add('show');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+            modal.querySelector('[data-close-report-details]').focus();
+        });
+    });
+
+    document.querySelectorAll('[data-report-details-modal]').forEach(modal => {
+        modal.querySelectorAll('[data-close-report-details]').forEach(button => {
+            button.addEventListener('click', closeReportDetails);
+        });
+        modal.addEventListener('click', event => {
+            if (event.target === modal) {
+                closeReportDetails();
+            }
+        });
+    });
+
+    document.addEventListener('keydown', event => {
+        if (!activeModal) {
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            closeReportDetails();
+        } else if (event.key === 'Tab') {
+            const buttons = activeModal.querySelectorAll('button:not([disabled])');
+            const first = buttons[0];
+            const last = buttons[buttons.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+    });
+})();
+</script>
+@endpush
