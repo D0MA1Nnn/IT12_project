@@ -20,6 +20,7 @@
     method="GET"
     action="{{ route('inventory.index') }}"
     class="inventory-toolbar"
+    data-auto-filter
 >
     <div class="inventory-search">
         <svg
@@ -71,13 +72,6 @@
             Out of Stock
         </option>
     </select>
-
-    <button
-        type="submit"
-        class="btn primary"
-    >
-        Filter
-    </button>
 
     @if(
         request()->filled('search') ||

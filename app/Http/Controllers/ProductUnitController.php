@@ -160,7 +160,7 @@ class ProductUnitController extends Controller
         if ($productUnit->is_base_unit) {
             return back()->with(
                 'error',
-                'The base unit cannot be archived.'
+                'The base inventory unit cannot be disabled.'
             );
         }
 
@@ -177,9 +177,9 @@ class ProductUnitController extends Controller
         return back()->with(
             'success',
             $productUnit->is_active
-                ? 'Product unit restored successfully.'
-                : 'Product unit archived successfully.'
-        );
+                ? 'Product unit enabled successfully.'
+                : 'Product unit disabled successfully.'
+        )->with('manage_product_units', $product->product_id);
     }
 
     private function log(

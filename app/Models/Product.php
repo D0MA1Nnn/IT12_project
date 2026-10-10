@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class Product extends Model
 {
@@ -16,6 +17,8 @@ class Product extends Model
     protected $fillable = [
         'category_id',
         'product_name',
+        'group_name',
+        'size_name',
         'description',
         'is_active',
     ];
@@ -25,6 +28,31 @@ class Product extends Model
         return [
             'is_active' => 'boolean',
         ];
+    }
+
+    public function groupLabel(): string
+    {
+        return $this->group_name ?? $this->product_name;
+    }
+
+    public function displayGroupKey(): string
+    {
+        return $this->group_name !== null && $this->size_name !== null
+            ? 'group:'.$this->category_id.':'.mb_strtolower($this->group_name)
+            : 'product:'.$this->product_id;
+    }
+
+    /**
+     * @param  Collection<int, Product>  $products
+     * @return Collection<int, Collection<int, Product>>
+     */
+    public static function groupForDisplay(Collection $products): Collection
+    {
+        return $products->groupBy(fn (Product $product): string => $product->displayGroupKey())
+            ->map(fn (Collection $sizes): Collection => $sizes->sortBy('size_name', SORT_NATURAL | SORT_FLAG_CASE)->values())
+            ->sort(fn (Collection $left, Collection $right): int => strnatcasecmp($left->first()->groupLabel(), $right->first()->groupLabel())
+                ?: $left->first()->product_id <=> $right->first()->product_id)
+            ->values();
     }
 
     public function category()

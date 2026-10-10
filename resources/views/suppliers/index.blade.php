@@ -486,6 +486,7 @@
         method="GET"
         action="{{ route('suppliers.index') }}"
         class="supplier-filters"
+        data-auto-filter
     >
 
         {{-- SEARCH --}}
@@ -557,15 +558,6 @@
             </option>
 
         </select>
-
-
-        {{-- FILTER BUTTON --}}
-        <button
-            type="submit"
-            class="btn primary supplier-filter-button"
-        >
-            Filter
-        </button>
 
 
         {{-- RESET --}}

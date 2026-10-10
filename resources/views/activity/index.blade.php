@@ -2,7 +2,7 @@
 @section('title','Activity Logs')
 @section('content')
 <div class="card activity-log-card">
-    <form method="GET" class="toolbar activity-log-filter">
+    <form method="GET" class="toolbar activity-log-filter" data-auto-filter>
         <select name="module" class="activity-log-select">
             <option value="">All Modules</option>
             @foreach(['AUTH','PRODUCT','CATEGORY','SUPPLIER','PURCHASE','SALE','USER','INVENTORY','BACKUP','UNIT'] as $m)
@@ -12,7 +12,6 @@
 
         <input class="input activity-log-date" type="date" name="date" value="{{request('date')}}">
 
-        <button class="btn primary">Filter</button>
         <a class="btn light" href="{{route('activity.index')}}">Clear</a>
     </form>
 

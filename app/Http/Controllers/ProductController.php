@@ -10,7 +10,11 @@ use App\Models\ProductUnit;
 use App\Models\Supplier;
 use App\Models\UnitOfMeasure;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator as ValidationValidator;
 
 class ProductController extends Controller
 {
@@ -29,6 +33,8 @@ class ProductController extends Controller
 
             $query->where(function ($q) use ($search) {
                 $q->where('product_name', 'like', "%{$search}%")
+                    ->orWhere('group_name', 'like', "%{$search}%")
+                    ->orWhere('size_name', 'like', "%{$search}%")
                     ->orWhereHas('category', function ($categoryQuery) use ($search) {
                         $categoryQuery->where('category_name', 'like', "%{$search}%");
                     });
@@ -69,10 +75,11 @@ class ProductController extends Controller
             $query->where('is_active', false);
         }
 
-        $products = $query
-            ->orderBy('product_name')
-            ->paginate(10)
-            ->withQueryString();
+        $groups = Product::groupForDisplay($query->orderBy('product_name')->orderBy('product_id')->get());
+        $page = max(1, min((int) $request->input('page', 1), max(1, (int) ceil($groups->count() / 10))));
+        $products = (new LengthAwarePaginator($groups->forPage($page, 10)->values(), $groups->count(), 10, $page, [
+            'path' => $request->url(),
+        ]))->withQueryString();
 
         $categories = Category::where('is_active', true)
             ->orderBy('category_name')
@@ -108,6 +115,8 @@ class ProductController extends Controller
             $product = Product::create([
                 'category_id' => $data['category_id'],
                 'product_name' => trim($data['product_name']),
+                'group_name' => $data['group_name'],
+                'size_name' => $data['size_name'],
                 'description' => $data['description'] ?? null,
                 'is_active' => true,
             ]);
@@ -142,7 +151,8 @@ class ProductController extends Controller
 
         return redirect()
             ->route('products.index')
-            ->with('success', 'Product added successfully.');
+            ->with('success', 'Product added successfully.')
+            ->with('selected_product_size', $product->product_id);
     }
 
     public function edit(Product $product)
@@ -152,13 +162,15 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product)
     {
-        $data = $this->data($request);
+        $data = $this->data($request, $product);
 
         DB::transaction(function () use ($data, $product) {
 
             $product->update([
                 'category_id' => $data['category_id'],
                 'product_name' => trim($data['product_name']),
+                'group_name' => $data['group_name'],
+                'size_name' => $data['size_name'],
                 'description' => $data['description'] ?? null,
             ]);
 
@@ -243,7 +255,8 @@ class ProductController extends Controller
 
         return redirect()
             ->route('products.index')
-            ->with('success', 'Product updated successfully.');
+            ->with('success', 'Product updated successfully.')
+            ->with('selected_product_size', $product->product_id);
     }
 
     public function deactivate(Product $product)
@@ -282,7 +295,7 @@ class ProductController extends Controller
         );
     }
 
-    private function data(Request $request)
+    private function data(Request $request, ?Product $product = null): array
     {
         $rules = [
             'category_id' => [
@@ -295,6 +308,9 @@ class ProductController extends Controller
                 'string',
                 'max:150',
             ],
+
+            'has_sizes' => ['sometimes', 'boolean'],
+            'size_name' => [Rule::requiredIf($request->boolean('has_sizes')), 'nullable', 'string', 'max:60'],
 
             'supplier_id' => [
                 'required',
@@ -330,7 +346,35 @@ class ProductController extends Controller
             ],
         ];
 
-        return $request->validate($rules);
+        $validator = Validator::make($request->all(), $rules, [
+            'size_name.required' => 'Enter a size, or turn off Has sizes.',
+        ]);
+        $validator->after(function (ValidationValidator $validator) use ($request, $product): void {
+            if ($validator->errors()->isNotEmpty() || ! $request->boolean('has_sizes')) {
+                return;
+            }
+
+            $name = trim((string) $request->input('product_name'));
+            $size = trim((string) $request->input('size_name'));
+            if ($size === '') {
+                $validator->errors()->add('size_name', 'Enter a size, or turn off Has sizes.');
+            } elseif (mb_strlen($name.' — '.$size) > 150) {
+                $validator->errors()->add('product_name', 'The product name and size together must not exceed 150 characters.');
+            } elseif (Product::where('category_id', $request->input('category_id'))
+                ->whereRaw('LOWER(group_name) = ?', [mb_strtolower($name)])
+                ->whereRaw('LOWER(size_name) = ?', [mb_strtolower($size)])
+                ->when($product, fn ($query) => $query->where('product_id', '!=', $product->product_id))
+                ->exists()) {
+                $validator->errors()->add('size_name', 'This size already exists for this product. Edit the existing size instead.');
+            }
+        });
+        $data = $validator->validate();
+        $hasSizes = $request->boolean('has_sizes');
+        $data['group_name'] = $hasSizes ? trim($data['product_name']) : null;
+        $data['size_name'] = $hasSizes ? trim($data['size_name']) : null;
+        $data['product_name'] = $hasSizes ? $data['group_name'].' — '.$data['size_name'] : trim($data['product_name']);
+
+        return $data;
     }
 
     private function log(

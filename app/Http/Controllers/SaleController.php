@@ -9,8 +9,10 @@ use App\Models\ProductUnit;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Services\DatabaseBackupService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -81,6 +83,7 @@ class SaleController extends Controller
 
         return view('sales.create', [
             'products' => $products,
+            'productGroups' => Product::groupForDisplay($products),
             'categories' => $categories,
             'completedSale' => $completedSale,
         ]);
@@ -255,9 +258,13 @@ class SaleController extends Controller
     // STORE SALE
     // =========================================================
 
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
+            'payment_method' => [
+                'nullable',
+                Rule::in(['PAY_NOW', 'COD']),
+            ],
             'delivery_required' => [
                 'nullable',
                 'boolean',
@@ -293,7 +300,8 @@ class SaleController extends Controller
             ],
 
             'payment' => [
-                'required',
+                'required_unless:payment_method,COD',
+                'nullable',
                 'numeric',
                 'min:0',
                 'regex:/^\d+(\.\d{1,2})?$/',
@@ -310,10 +318,13 @@ class SaleController extends Controller
                 'exists:product_units,product_unit_id',
             ],
 
+            'items.*' => ['array:product_unit_id,quantity'],
+
             'items.*.quantity' => [
                 'required',
                 'numeric',
                 'gt:0',
+                'decimal:0,6',
             ],
         ], [
             'customer_contact_number.regex' => 'Customer contact number must start with 09 and contain exactly 11 numbers.',
@@ -325,12 +336,29 @@ class SaleController extends Controller
             'payment.numeric' => 'Customer payment must be a number.',
             'payment.regex' => 'Customer payment can only have up to 2 decimal places.',
             'items.*.quantity.numeric' => 'Item quantity must be a number.',
+            'items.*.quantity.decimal' => 'Item quantity can only have up to 6 decimal places.',
             'from.date_format' => 'Date must use the correct date format.',
             'to.date_format' => 'Date must use the correct date format.',
         ]);
 
         $deliveryRequired =
             (bool) ($data['delivery_required'] ?? false);
+
+        $paymentMethod = $data['payment_method'] ?? 'PAY_NOW';
+        $cashOnDelivery = $paymentMethod === 'COD';
+        $payment = (float) ($data['payment'] ?? 0);
+
+        if ($cashOnDelivery && ! $deliveryRequired) {
+            throw ValidationException::withMessages([
+                'delivery_required' => 'Cash on delivery requires a delivery order.',
+            ]);
+        }
+
+        if ($cashOnDelivery && $payment !== 0.0) {
+            throw ValidationException::withMessages([
+                'payment' => 'For cash on delivery, record the payment after the customer receives the products.',
+            ]);
+        }
 
         $deliveryFee = $deliveryRequired
             ? (float) ($data['delivery_fee'] ?? 0)
@@ -354,7 +382,7 @@ class SaleController extends Controller
         */
 
         $sale = DB::transaction(
-            function () use ($data, $deliveryRequired, $deliveryFee) {
+            function () use ($data, $deliveryRequired, $deliveryFee, $paymentMethod, $cashOnDelivery, $payment) {
 
                 /*
                 |--------------------------------------------------------------------------
@@ -383,6 +411,12 @@ class SaleController extends Controller
                     'delivery_required' => $deliveryRequired,
 
                     'delivery_fee' => $deliveryFee,
+
+                    'payment_method' => $paymentMethod,
+                    'payment_status' => $cashOnDelivery ? 'UNPAID' : 'PAID',
+                    'payment_received' => $payment,
+                    'paid_at' => $cashOnDelivery ? null : now(),
+                    'delivery_status' => $deliveryRequired ? 'PENDING' : 'NOT_REQUIRED',
 
                     'customer_name' => $deliveryRequired
                             ? trim((string) $data['customer_name'])
@@ -420,6 +454,7 @@ class SaleController extends Controller
                 */
 
                 $reservedByProduct = [];
+                $normalizedItemsByProduct = [];
 
                 foreach ($data['items'] as $item) {
 
@@ -430,7 +465,9 @@ class SaleController extends Controller
                     */
 
                     $productUnit = ProductUnit::with([
+                        'unit',
                         'product.inventory',
+                        'product.productUnits.unit',
                     ])
                         ->lockForUpdate()
                         ->findOrFail(
@@ -480,12 +517,26 @@ class SaleController extends Controller
                         ]);
                     }
 
+                    $baseProductUnit = $productUnit->product->productUnits
+                        ->where('is_active', true)
+                        ->firstWhere('is_base_unit', true);
+
+                    if (! $baseProductUnit || (float) $baseProductUnit->conversion_factor !== 1.0) {
+                        throw ValidationException::withMessages([
+                            'items' => "An active base unit with a conversion of 1 is required for {$productUnit->product->product_name}.",
+                        ]);
+                    }
+
                     $quantity =
                         (float) $item['quantity'];
 
-                    $neededBaseQuantity =
-                        $quantity *
-                        $conversionFactor;
+                    $neededBaseQuantity = round($quantity * $conversionFactor, 6);
+
+                    if ($neededBaseQuantity <= 0) {
+                        throw ValidationException::withMessages([
+                            'items' => 'The quantity is too small for the configured unit conversion.',
+                        ]);
+                    }
 
                     $inventory =
                         $productUnit
@@ -514,9 +565,7 @@ class SaleController extends Controller
                         $reservedByProduct[$productId]
                         ?? 0;
 
-                    $totalRequired =
-                        $alreadyReserved +
-                        $neededBaseQuantity;
+                    $totalRequired = round($alreadyReserved + $neededBaseQuantity, 6);
 
                     /*
                     |--------------------------------------------------------------------------
@@ -536,6 +585,24 @@ class SaleController extends Controller
                     $reservedByProduct[$productId] =
                         $totalRequired;
 
+                    $normalizedItemsByProduct[$productId] = [
+                        'product_unit' => $baseProductUnit,
+                        'quantity' => $totalRequired,
+                        'selling_unit' => $productUnit,
+                        'selling_quantity' => ($normalizedItemsByProduct[$productId]['selling_quantity'] ?? 0) + $quantity,
+                        'mixed_units' => ($normalizedItemsByProduct[$productId]['mixed_units'] ?? false)
+                            || (isset($normalizedItemsByProduct[$productId])
+                                && $normalizedItemsByProduct[$productId]['selling_unit']->product_unit_id !== $productUnit->product_unit_id),
+                    ];
+                }
+
+                foreach ($normalizedItemsByProduct as $normalizedItem) {
+                    $baseProductUnit = $normalizedItem['product_unit'];
+                    $quantity = $normalizedItem['quantity'];
+                    $sellingUnit = $normalizedItem['mixed_units'] ? $baseProductUnit : $normalizedItem['selling_unit'];
+                    $sellingQuantity = $normalizedItem['mixed_units'] ? $quantity : $normalizedItem['selling_quantity'];
+                    $sellingPrice = round((float) $baseProductUnit->selling_price * (float) $sellingUnit->conversion_factor, 2);
+
                     /*
                     |--------------------------------------------------------------------------
                     | Calculate subtotal.
@@ -543,8 +610,7 @@ class SaleController extends Controller
                     */
 
                     $subtotal = round(
-                        $quantity *
-                        (float) $productUnit->selling_price,
+                        $sellingQuantity * $sellingPrice,
                         2
                     );
 
@@ -557,13 +623,21 @@ class SaleController extends Controller
                     SaleItem::create([
                         'sale_id' => $sale->sale_id,
 
-                        'product_unit_id' => $productUnit->product_unit_id,
+                        'product_unit_id' => $baseProductUnit->product_unit_id,
 
                         'quantity' => $quantity,
 
-                        'unit_price' => $productUnit->selling_price,
+                        'unit_price' => $baseProductUnit->selling_price,
 
                         'subtotal' => $subtotal,
+                        'selling_details' => [
+                            'quantity' => round($sellingQuantity, 6),
+                            'unit' => $sellingUnit->unit?->unit_name ?? 'Unit',
+                            'unit_price' => $sellingPrice,
+                            'product_unit_id' => $sellingUnit->product_unit_id,
+                            'conversion_factor' => (float) $sellingUnit->conversion_factor,
+                            'base_quantity' => $quantity,
+                        ],
                     ]);
 
                     $total +=
@@ -576,11 +650,10 @@ class SaleController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
-                $finalTotal =
-                    $total + $deliveryFee;
+                $finalTotal = round($total + $deliveryFee, 2);
 
                 if (
-                    (float) $data['payment'] <
+                    ! $cashOnDelivery && $payment <
                     $finalTotal
                 ) {
                     throw ValidationException::withMessages([
@@ -676,7 +749,9 @@ class SaleController extends Controller
             && $this->saveOnlineBackupAfterCompletedTransaction($sale->sale_id);
 
         $successMessage = $deliveryRequired
-            ? 'Sale recorded. Delivery is pending. You can now process the next customer.'
+            ? ($cashOnDelivery
+                ? 'COD order recorded. Stock is reserved; payment will be collected after delivery.'
+                : 'Sale recorded. Delivery is pending. You can now process the next customer.')
             : 'Sale completed successfully. You can now process the next customer.';
 
         if ($onlineBackupSaved) {
@@ -696,8 +771,8 @@ class SaleController extends Controller
         return redirect()
             ->route('sales.create')
             ->with('completed_sale_id', $sale->sale_id)
-            ->with('receipt_payment', (float) $data['payment'])
-            ->with('receipt_change', (float) $data['payment'] - (float) $sale->total_amount)
+            ->with('receipt_payment', $sale->receivedPayment())
+            ->with('receipt_change', $sale->paymentChange())
             ->with('success', $successMessage);
     }
 
@@ -705,50 +780,116 @@ class SaleController extends Controller
     // COMPLETE DELIVERY
     // =========================================================
 
-    public function completeDelivery(Sale $sale)
+    public function completeDelivery(Sale $sale): RedirectResponse
     {
-        /*
-        |--------------------------------------------------------------------------
-        | Only for delivery transactions can be completed.
-        |--------------------------------------------------------------------------
-        */
+        $sale = DB::transaction(function () use ($sale): Sale {
+            $lockedSale = Sale::where('sale_id', $sale->sale_id)->lockForUpdate()->firstOrFail();
 
-        if (
-            ! $sale->delivery_required ||
-            $sale->status !== 'PENDING'
-        ) {
-            return back()->with(
-                'error',
-                'Only for delivery orders can be marked delivered.'
-            );
-        }
+            if (! $lockedSale->delivery_required || $lockedSale->status !== 'PENDING' || $lockedSale->delivery_status !== 'PENDING') {
+                throw ValidationException::withMessages([
+                    'sale' => 'Only pending deliveries can be marked delivered.',
+                ]);
+            }
 
-        $sale->update([
-            'status' => 'COMPLETED',
+            $updates = [
+                'delivery_status' => 'DELIVERED',
+                'status' => $lockedSale->payment_status === 'PAID' ? 'COMPLETED' : 'PENDING',
+            ];
+
+            $collectCodPayment = $lockedSale->payment_method === 'COD' && $lockedSale->payment_status === 'UNPAID';
+
+            if ($collectCodPayment) {
+                $updates['payment_received'] = $lockedSale->total_amount;
+                $updates['payment_status'] = 'PAID';
+                $updates['paid_at'] = now();
+                $updates['status'] = 'COMPLETED';
+            }
+
+            $lockedSale->update($updates);
+
+            ActivityLog::create([
+                'user_id' => auth()->id(),
+                'module' => 'SALE',
+                'action' => 'UPDATE',
+                'description' => $collectCodPayment
+                    ? "Confirmed delivery and collected full COD payment including the delivery fee for sale #{$lockedSale->sale_id}."
+                    : "Marked delivery for sale #{$lockedSale->sale_id} as delivered successfully.",
+                'reference_type' => 'Sale',
+                'reference_id' => $lockedSale->sale_id,
+            ]);
+
+            return $lockedSale;
+        });
+
+        $onlineBackupSaved = $sale->status === 'COMPLETED'
+            && $this->saveOnlineBackupAfterCompletedTransaction($sale->sale_id);
+
+        $message = $sale->payment_method === 'COD'
+            ? 'Delivery completed. Full COD payment, including the delivery fee, is recorded as paid.'
+            : 'Delivery marked as delivered successfully.';
+
+        $redirect = $sale->payment_method === 'COD'
+            ? redirect()->route('sales.create')->with('completed_sale_id', $sale->sale_id)
+            : back();
+
+        return $redirect->with(
+            'success',
+            $message.($onlineBackupSaved ? ' Online backup saved.' : '')
+        );
+    }
+
+    public function collectPayment(Request $request, Sale $sale): RedirectResponse
+    {
+        $data = $request->validate([
+            'payment' => ['nullable', 'numeric', 'min:0', 'regex:/^\d+(\.\d{1,2})?$/'],
+        ], [
+            'payment.regex' => 'Payment can only have up to 2 decimal places.',
         ]);
 
-        ActivityLog::create([
-            'user_id' => auth()->id(),
+        $sale = DB::transaction(function () use ($sale, $data): Sale {
+            $lockedSale = Sale::where('sale_id', $sale->sale_id)->lockForUpdate()->firstOrFail();
 
-            'module' => 'SALE',
+            if ($lockedSale->payment_method !== 'COD' || $lockedSale->payment_status !== 'UNPAID'
+                || $lockedSale->delivery_status !== 'DELIVERED' || $lockedSale->status !== 'PENDING') {
+                throw ValidationException::withMessages([
+                    'sale' => 'Payment can only be recorded for delivered, unpaid COD orders.',
+                ]);
+            }
 
-            'action' => 'UPDATE',
+            $payment = (float) ($data['payment'] ?? $lockedSale->total_amount);
 
-            'description' => "Marked delivery for sale #{$sale->sale_id} as delivered successfully.",
+            if ($payment < (float) $lockedSale->total_amount) {
+                throw ValidationException::withMessages([
+                    'payment' => 'The amount collected is less than the total amount due.',
+                ]);
+            }
 
-            'reference_type' => 'Sale',
+            $lockedSale->update([
+                'payment_received' => $payment,
+                'payment_status' => 'PAID',
+                'paid_at' => now(),
+                'status' => 'COMPLETED',
+            ]);
 
-            'reference_id' => $sale->sale_id,
-        ]);
+            ActivityLog::create([
+                'user_id' => auth()->id(), 'module' => 'SALE', 'action' => 'UPDATE',
+                'description' => "Collected COD payment for sale #{$lockedSale->sale_id}.",
+                'reference_type' => 'Sale', 'reference_id' => $lockedSale->sale_id,
+            ]);
+
+            return $lockedSale;
+        });
 
         $onlineBackupSaved = $this->saveOnlineBackupAfterCompletedTransaction($sale->sale_id);
 
-        return back()->with(
-            'success',
-            $onlineBackupSaved
-                ? 'Delivery marked as delivered successfully. Online backup saved.'
-                : 'Delivery marked as delivered successfully.'
-        );
+        return redirect()->route('sales.create')
+            ->with('completed_sale_id', $sale->sale_id)
+            ->with('success', 'COD payment recorded. The order is delivered and paid.'.($onlineBackupSaved ? ' Online backup saved.' : ''));
+    }
+
+    public function receipt(Sale $sale): RedirectResponse
+    {
+        return redirect()->route('sales.create')->with('completed_sale_id', $sale->sale_id);
     }
 
     private function saveOnlineBackupAfterCompletedTransaction(int $saleId): bool
@@ -799,7 +940,8 @@ class SaleController extends Controller
 
         if (
             ! $sale->delivery_required ||
-            $sale->status !== 'PENDING'
+            $sale->status !== 'PENDING' ||
+            $sale->delivery_status !== 'PENDING'
         ) {
             return back()->with(
                 'error',
@@ -835,7 +977,8 @@ class SaleController extends Controller
 
                 if (
                     ! $lockedSale->delivery_required ||
-                    $lockedSale->status !== 'PENDING'
+                    $lockedSale->status !== 'PENDING' ||
+                    $lockedSale->delivery_status !== 'PENDING'
                 ) {
                     throw ValidationException::withMessages([
                         'sale' => 'This delivery is no longer for delivery.',
@@ -877,9 +1020,7 @@ class SaleController extends Controller
                             ->product
                             ->product_id;
 
-                    $returnQuantity =
-                        (float) $item->quantity *
-                        (float) $productUnit->conversion_factor;
+                    $returnQuantity = $item->baseStockQuantity();
 
                     if (
                         ! isset(
@@ -936,6 +1077,7 @@ class SaleController extends Controller
 
                 $lockedSale->update([
                     'status' => 'CANCELLED',
+                    'delivery_status' => 'CANCELLED',
                     'delivery_cancel_reason' => trim((string) $data['delivery_cancel_reason']),
                 ]);
             }

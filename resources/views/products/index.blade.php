@@ -14,7 +14,7 @@
 {{-- FILTERS --}}
 <form method="GET"
       action="{{ route('products.index') }}"
-      class="product-toolbar">
+      class="product-toolbar" data-auto-filter>
 
     <div class="standard-search">
         <span class="search-icon">⌕</span>
@@ -54,10 +54,6 @@
             Archived
         </option>
     </select>
-
-    <button class="btn primary" type="submit">
-        Filter
-    </button>
 
     @if(
         request()->filled('search') ||
@@ -99,9 +95,9 @@
                 </tr>
             </thead>
 
-            <tbody>
-
-            @forelse($products as $product)
+            @forelse($products as $productGroup)
+            <tbody data-size-group="{{ $productGroup->first()->product_id }}">
+            @foreach($productGroup as $product)
 
                 @php
                     $baseUnit =
@@ -124,6 +120,10 @@
                                 $product,
                                 $unitOption,
                             ]),
+                            'toggle_url' => route('products.units.toggle', [
+                                $product,
+                                $unitOption,
+                            ]),
                         ])
                         ->values();
 
@@ -131,12 +131,24 @@
                         (float)($product->inventory?->reorder_level ?? 0);
                 @endphp
 
-                <tr>
+                <tr data-size-product="{{ $product->product_id }}" @if(! $loop->first) hidden @endif>
 
                     <td>
                         <strong>
-                            {{ $product->product_name }}
+                            {{ $product->groupLabel() }}
                         </strong>
+                        @if($product->size_name !== null)
+                            <label class="product-size-label">
+                                Size
+                                <select data-size-selector aria-label="Size for {{ $product->groupLabel() }}">
+                                    @foreach($productGroup as $sizeOption)
+                                        <option value="{{ $sizeOption->product_id }}" @selected($sizeOption->product_id === $product->product_id)>
+                                            {{ $sizeOption->size_name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </label>
+                        @endif
                     </td>
 
                     <td>
@@ -197,7 +209,8 @@
                                 type="button"
                                 class="btn light small edit-product-btn"
                                 data-update-url="{{ route('products.update', $product) }}"
-                                data-name="{{ $product->product_name }}"
+                                data-name="{{ $product->groupLabel() }}"
+                                data-size="{{ $product->size_name ?? '' }}"
                                 data-category="{{ $product->category_id }}"
                                 data-unit="{{ $baseUnit?->unit_id ?? '' }}"
                                 data-supplier="{{ $product->suppliers->first()?->supplier_id ?? '' }}"
@@ -213,6 +226,7 @@
                             <button
                                 type="button"
                                 class="btn primary small units-btn"
+                                data-product-id="{{ $product->product_id }}"
                                 data-product-name="{{ $product->product_name }}"
                                 data-store-url="{{ route('products.units.store', $product) }}"
                                 data-base-unit-name="{{ $baseUnit?->unit?->unit_name ?? 'base unit' }}"
@@ -222,6 +236,10 @@
                             >
                                 Unit
                             </button>
+
+                            @if($product->size_name !== null)
+                                <button type="button" class="btn light small add-size-btn">Add Size</button>
+                            @endif
 
                             <form
                                 method="POST"
@@ -251,18 +269,17 @@
                     </td>
 
                 </tr>
-
+            @endforeach
+            </tbody>
             @empty
-
+            <tbody>
                 <tr>
                     <td colspan="6" class="empty-row">
                         No products found.
                     </td>
                 </tr>
-
-            @endforelse
-
             </tbody>
+            @endforelse
 
         </table>
 
@@ -474,6 +491,15 @@ ADD / EDIT PRODUCT MODAL
                         id="productName"
                         required
                     >
+                </div>
+
+                <div class="field">
+                    <label class="product-size-toggle">
+                        <input type="checkbox" name="has_sizes" id="productHasSizes" value="1">
+                        Has sizes
+                    </label>
+                    <input class="input" type="text" name="size_name" id="productSize"
+                        maxlength="60" placeholder="Size, e.g. 2x4 or 2 inches" disabled>
                 </div>
 
 
@@ -1253,7 +1279,15 @@ body {
 .product-unit-view-actions {
     display: flex;
     justify-content: flex-end;
+    gap: 6px;
+    flex-wrap: wrap;
 }
+
+[data-size-product][hidden] { display: none !important; }
+.product-size-label { display: flex; align-items: center; gap: 8px; margin-top: 7px; font-size: 11px; color: #64748b; }
+.product-size-label select { width: auto; min-width: 90px; padding: 6px 8px; font-size: 12px; }
+.product-size-toggle { display: flex; align-items: center; gap: 8px; }
+.product-size-toggle input { width: auto; }
 
 .product-view-grid {
     display: grid;
@@ -1452,6 +1486,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const productCostInput =
         document.getElementById('productCost');
 
+    const productHasSizes = document.getElementById('productHasSizes');
+    const productSize = document.getElementById('productSize');
+
+    function syncProductSizeField() {
+        productSize.disabled = !productHasSizes.checked;
+        productSize.required = productHasSizes.checked;
+        if (!productHasSizes.checked) {
+            productSize.value = '';
+        }
+    }
+
+    productHasSizes.addEventListener('change', syncProductSizeField);
+
     let editingProductUnits = [];
 
     function resetProductUnitChoices() {
@@ -1500,6 +1547,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         productForm.reset();
         resetProductUnitChoices();
+        syncProductSizeField();
 
         productForm.action =
             @json(route('products.store'));
@@ -1539,6 +1587,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     'productName'
                 ).value =
                     button.dataset.name || '';
+
+                productHasSizes.checked = Boolean(button.dataset.size);
+                productSize.value = button.dataset.size || '';
+                syncProductSizeField();
 
                 document.getElementById(
                     'productCategory'
@@ -1583,6 +1635,20 @@ document.addEventListener('DOMContentLoaded', function () {
         'change',
         syncProductBaseUnitPrices
     );
+
+    document.querySelectorAll('.add-size-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            const source = button.closest('tr').querySelector('.edit-product-btn').dataset;
+            openAddProduct.click();
+            document.getElementById('productName').value = source.name;
+            document.getElementById('productCategory').value = source.category;
+            document.getElementById('productSupplier').value = source.supplier;
+            productUnitSelect.value = source.unit;
+            productHasSizes.checked = true;
+            syncProductSizeField();
+            productSize.focus();
+        });
+    });
 
 
     closeProductModal.addEventListener(
@@ -1825,7 +1891,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         target.innerHTML = units.map(function (unit) {
             const baseLabel = unit.is_base_unit ? ' <span class="unit-chip">Base</span>' : '';
-            const statusLabel = unit.is_active ? 'Active' : 'Archived';
+            const statusLabel = unit.is_active ? 'Active' : 'Disabled';
             const editButton = unit.is_base_unit
                 ? ''
                 : `<button
@@ -1835,6 +1901,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     >
                         Edit
                     </button>`;
+            const toggleForm = unit.is_base_unit
+                ? ''
+                : `<form method="POST" action="${escapeHtml(unit.toggle_url)}" class="unit-toggle-form">
+                        <input type="hidden" name="_token" value="${escapeHtml(unitsForm.querySelector('[name="_token"]').value)}">
+                        <input type="hidden" name="_method" value="PATCH">
+                        <button type="submit" class="btn ${unit.is_active ? 'danger' : 'success'} small">
+                            ${unit.is_active ? 'Disable' : 'Enable'}
+                        </button>
+                    </form>`;
 
             return `
                 <div class="product-unit-view-row">
@@ -1856,6 +1931,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                     <div class="product-unit-view-actions">
                         ${editButton}
+                        ${toggleForm}
                     </div>
                 </div>
             `;
@@ -2111,6 +2187,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     );
 
+    productUnitViewList.addEventListener('submit', function (event) {
+        if (event.target.classList.contains('unit-toggle-form')) {
+            event.target.querySelector('button[type="submit"]').disabled = true;
+        }
+    });
+
 
     unitOptionSelect.addEventListener(
         'change',
@@ -2258,10 +2340,22 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     );
 
+    const managedProductId = {{ Illuminate\Support\Js::from(session('manage_product_units')) }};
+
+    if (managedProductId !== null) {
+        const unitButton = Array.from(document.querySelectorAll('.units-btn')).find(button => (
+            String(button.dataset.productId) === String(managedProductId)
+        ));
+
+        unitButton?.click();
+    }
+
 });
 
 </script>
 
 @endpush
+
+@include('layouts.product-sizes')
 
 @endsection

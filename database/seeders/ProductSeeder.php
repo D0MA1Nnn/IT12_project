@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Category;
 use App\Models\Product;
+use Illuminate\Database\Seeder;
 
 class ProductSeeder extends Seeder
 {
@@ -43,18 +43,24 @@ class ProductSeeder extends Seeder
         Product::create([
             'category_id' => $lumber->category_id,
             'product_name' => '2x2 Lumber',
+            'group_name' => 'Lumber',
+            'size_name' => '2x2',
             'description' => 'Common construction lumber.',
         ]);
 
         Product::create([
             'category_id' => $lumber->category_id,
             'product_name' => '2x3 Lumber',
+            'group_name' => 'Lumber',
+            'size_name' => '2x3',
             'description' => 'Common construction lumber.',
         ]);
 
         Product::create([
             'category_id' => $lumber->category_id,
             'product_name' => '2x4 Lumber',
+            'group_name' => 'Lumber',
+            'size_name' => '2x4',
             'description' => 'Common construction lumber.',
         ]);
 
@@ -73,12 +79,16 @@ class ProductSeeder extends Seeder
         Product::create([
             'category_id' => $hardware->category_id,
             'product_name' => 'Common Nail 2"',
+            'group_name' => 'Common Nail',
+            'size_name' => '2"',
             'description' => 'Common construction nail.',
         ]);
 
         Product::create([
             'category_id' => $plumbing->category_id,
             'product_name' => 'PVC Pipe 1/2"',
+            'group_name' => 'PVC Pipe',
+            'size_name' => '1/2"',
             'description' => 'PVC plumbing pipe.',
         ]);
 

@@ -145,6 +145,7 @@ class DashboardController extends Controller
                     'status',
                     'PENDING'
                 )
+                ->where('delivery_status', 'PENDING')
                 ->count();
 
             /*
@@ -172,12 +173,12 @@ class DashboardController extends Controller
             $todaySalesCount = Sale::whereDate(
                 'sale_date',
                 today()
-            )->count();
+            )->where('status', 'COMPLETED')->count();
 
             $todaySalesAmount = Sale::whereDate(
                 'sale_date',
                 today()
-            )->sum('total_amount');
+            )->where('status', 'COMPLETED')->sum('total_amount');
 
             /*
             |--------------------------------------------------------------------------
@@ -293,12 +294,12 @@ class DashboardController extends Controller
         $todaySalesCount = Sale::whereDate(
             'sale_date',
             today()
-        )->count();
+        )->where('status', 'COMPLETED')->count();
 
         $todaySalesAmount = Sale::whereDate(
             'sale_date',
             today()
-        )->sum('total_amount');
+        )->where('status', 'COMPLETED')->sum('total_amount');
 
         $recentSales = Sale::with('user')
             ->latest('sale_date')

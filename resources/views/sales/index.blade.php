@@ -28,7 +28,7 @@
     </div>
 @endif
 
-<form method="GET" action="{{ route('sales.index') }}" class="toolbar sales-filter-bar">
+<form method="GET" action="{{ route('sales.index') }}" class="toolbar sales-filter-bar" data-auto-filter>
     <div class="sales-filter-controls">
         <input
             class="input"
@@ -36,8 +36,6 @@
             value="{{ request('q') }}"
             placeholder="Search sale reference or user..."
         >
-
-        <button class="btn primary">Filter</button>
 
         @if(request()->filled('q'))
             <a class="btn light" href="{{ route('sales.index') }}">Clear</a>
@@ -55,7 +53,7 @@
                     <th>Items</th>
                     <th>Total Amount</th>
                     <th>Delivery</th>
-                    <th>Status</th>
+                    <th>Payment</th>
                     <th>Recorded By</th>
                     <th>Action</th>
                 </tr>
@@ -67,116 +65,67 @@
                         <td>{{ $sale->sale_date->format('m/d/Y g:i A') }}</td>
                         <td>{{ $sale->items->count() }}</td>
                         <td>₱{{ number_format((float) $sale->total_amount, 2) }}</td>
-                        <td>Delivery</td>
                         <td>
-                            @if($sale->status === 'PENDING')
-                                <span class="sale-status pending">For Delivery</span>
-                            @elseif($sale->status === 'CANCELLED')
-                                <span class="sale-status cancelled">Cancelled Delivery</span>
-                            @else
-                                <span class="sale-status completed">Delivered Successfully</span>
-                            @endif
+                            <span class="sale-status {{ $sale->delivery_status === 'DELIVERED' ? 'completed' : 'pending' }}">
+                                {{ $sale->delivery_status === 'DELIVERED' ? 'Delivered' : 'For Delivery' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="sale-status {{ $sale->payment_status === 'PAID' ? 'completed' : 'pending' }}">
+                                {{ $sale->payment_method === 'COD' ? 'COD · ' : '' }}{{ $sale->payment_status === 'PAID' ? 'Paid' : 'Unpaid' }}
+                            </span>
                         </td>
                         <td>{{ $sale->user?->username ?? '—' }}</td>
                         <td>
                             @if($sale->delivery_required && $sale->status === 'PENDING')
                                 <div class="sales-actions">
-                                    <button
-                                        type="button"
-                                        class="btn light small"
-                                        data-open-modal="deliveryDetailsModal{{ $sale->sale_id }}"
-                                    >
-                                        View Details
-                                    </button>
+                                    <a class="btn light small" href="{{ route('sales.receipt', $sale) }}">View Invoice</a>
 
-                                    <form method="POST" action="{{ route('sales.complete-delivery', $sale) }}" onsubmit="return confirm('Confirm that the customer successfully received this delivery?')">
-                                        @csrf
-                                        @method('PATCH')
-                                        <button class="btn success small">Delivered Successfully</button>
-                                    </form>
+                                    @if($sale->delivery_status === 'PENDING')
+                                        <button type="button" class="btn success small" data-open-modal="confirmDeliveryModal{{ $sale->sale_id }}">Mark Delivered</button>
 
-                                    <button
-                                        type="button"
-                                        class="btn danger small"
-                                        data-open-modal="cancelDeliveryModal{{ $sale->sale_id }}"
-                                    >
-                                        Cancelled Delivery
-                                    </button>
+                                        <button type="button" class="btn danger small" data-open-modal="cancelDeliveryModal{{ $sale->sale_id }}">
+                                            Cancel Delivery
+                                        </button>
+                                    @elseif($sale->payment_status === 'UNPAID')
+                                        <button type="button" class="btn success small" data-open-modal="confirmDeliveryModal{{ $sale->sale_id }}">Confirm Paid</button>
+                                    @endif
                                 </div>
 
-                                <div class="delivery-modal" id="deliveryDetailsModal{{ $sale->sale_id }}">
-                                    <div class="delivery-modal-card delivery-details-card">
+                                @php
+                                    $isPendingDelivery = $sale->delivery_status === 'PENDING';
+                                    $confirmsCodPayment = $sale->payment_method === 'COD' && $sale->payment_status === 'UNPAID';
+                                @endphp
+                                <div class="delivery-modal" id="confirmDeliveryModal{{ $sale->sale_id }}" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="confirmDeliveryTitle{{ $sale->sale_id }}" aria-describedby="confirmDeliveryMessage{{ $sale->sale_id }}">
+                                    <div class="delivery-modal-card">
                                         <div class="delivery-modal-head">
                                             <div>
-                                                <h2>Delivery Details</h2>
+                                                <h2 id="confirmDeliveryTitle{{ $sale->sale_id }}">{{ $isPendingDelivery ? 'Complete Delivery?' : 'Confirm COD Payment?' }}</h2>
                                                 <div class="muted">SALE-{{ str_pad($sale->sale_id, 4, '0', STR_PAD_LEFT) }}</div>
                                             </div>
-
-                                            <button type="button" class="delivery-modal-close" data-close-modal>&times;</button>
+                                            <button type="button" class="delivery-modal-close" data-close-modal aria-label="Close confirmation">&times;</button>
                                         </div>
-
-                                        <div class="delivery-detail-grid">
-                                            <div>
-                                                <span>Date / Time</span>
-                                                <strong>{{ $sale->sale_date->format('m/d/Y g:i A') }}</strong>
-                                            </div>
-
-                                            <div>
-                                                <span>Status</span>
-                                                <strong>For Delivery</strong>
-                                            </div>
-
-                                            <div>
-                                                <span>Total Amount</span>
-                                                <strong>₱{{ number_format((float) $sale->total_amount, 2) }}</strong>
-                                            </div>
-
-                                            <div>
-                                                <span>Delivery Fee</span>
-                                                <strong>₱{{ number_format((float) $sale->delivery_fee, 2) }}</strong>
-                                            </div>
-
-                                            <div>
-                                                <span>Recorded By</span>
-                                                <strong>{{ $sale->user?->username ?? '—' }}</strong>
-                                            </div>
-                                        </div>
-
-                                        <div class="delivery-customer-box">
-                                            <strong>Customer Delivery Information</strong>
-                                            <div><span>Customer Name:</span> {{ $sale->customer_name ?? '—' }}</div>
-                                            <div><span>Contact Number:</span> {{ $sale->customer_contact_number ?? '—' }}</div>
-                                            <div><span>Address:</span> {{ $sale->delivery_address ?? '—' }}</div>
-                                        </div>
-
-                                        <div class="delivery-items-box">
-                                            <strong>Products</strong>
-
-                                            @foreach($sale->items as $item)
-                                                @php
-                                                    $productUnit = $item->productUnit;
-                                                    $product = $productUnit?->product;
-                                                    $unit = $productUnit?->unit;
-                                                    $quantity = rtrim(rtrim(number_format((float) $item->quantity, 2), '0'), '.');
-                                                @endphp
-
-                                                <div class="delivery-item-row">
-                                                    <div>
-                                                        <strong>{{ $product?->product_name ?? 'Product' }}</strong>
-                                                        <div class="muted">
-                                                            {{ $quantity }} {{ $unit?->unit_name ?? 'Unit' }}
-                                                            × ₱{{ number_format((float) $item->unit_price, 2) }}
-                                                        </div>
+                                        <form method="POST" action="{{ route($isPendingDelivery ? 'sales.complete-delivery' : 'sales.collect-payment', $sale) }}" data-delivery-confirm-form>
+                                            @csrf
+                                            @method('PATCH')
+                                            <div class="delivery-confirm-body" id="confirmDeliveryMessage{{ $sale->sale_id }}">
+                                                <p>{{ $isPendingDelivery ? 'Confirm that the customer has received the products.' : 'This order is already delivered. Confirm that full payment has been collected.' }}</p>
+                                                @if($confirmsCodPayment)
+                                                    <div class="delivery-confirm-total">
+                                                        <span>Full COD payment</span>
+                                                        <strong>₱{{ number_format((float) $sale->total_amount, 2) }}</strong>
+                                                        <small>including the delivery fee of ₱{{ number_format((float) $sale->delivery_fee, 2) }}</small>
                                                     </div>
-
-                                                    <strong>₱{{ number_format((float) $item->subtotal, 2) }}</strong>
-                                                </div>
-                                            @endforeach
-                                        </div>
-
-                                        <div class="delivery-modal-actions">
-                                            <button type="button" class="btn light" data-close-modal>Close</button>
-                                        </div>
+                                                    <p class="muted">Only confirm after collecting the full payment. The order will be marked delivered and paid.</p>
+                                                @else
+                                                    <p class="muted">Payment is already recorded. This will mark the delivery completed without charging the customer again.</p>
+                                                @endif
+                                            </div>
+                                            <div class="delivery-modal-actions">
+                                                <button type="button" class="btn light" data-close-modal data-initial-focus>Go Back</button>
+                                                <button type="submit" class="btn success">{{ $isPendingDelivery ? ($confirmsCodPayment ? 'Yes, Delivered & Paid' : 'Yes, Mark Delivered') : 'Yes, Confirm Paid' }}</button>
+                                            </div>
+                                        </form>
                                     </div>
                                 </div>
 
@@ -310,10 +259,6 @@
     box-shadow: 0 24px 70px rgba(0, 0, 0, .25);
 }
 
-.delivery-details-card {
-    width: min(640px, 100%);
-}
-
 .delivery-modal-head {
     display: flex;
     justify-content: space-between;
@@ -341,9 +286,31 @@
 }
 
 .cancel-delivery-form,
-.delivery-customer-box,
-.delivery-items-box {
+.delivery-confirm-body {
     padding: 18px 24px;
+}
+
+.delivery-confirm-body p {
+    margin: 0;
+    line-height: 1.6;
+}
+
+.delivery-confirm-total {
+    display: grid;
+    gap: 6px;
+    margin: 18px 0;
+    padding: 16px;
+    border: 1px solid #e1e8f3;
+    border-radius: 12px;
+    background: #f7f9fc;
+}
+
+.delivery-confirm-total strong {
+    font-size: 26px;
+}
+
+.delivery-confirm-total small {
+    color: #64748b;
 }
 
 .cancel-delivery-form textarea {
@@ -353,56 +320,6 @@
 
 .cancel-inventory-note {
     margin-top: 8px;
-}
-
-.delivery-detail-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    padding: 18px 24px 0;
-}
-
-.delivery-detail-grid > div {
-    padding: 12px;
-    border: 1px solid #edf0f4;
-    border-radius: 10px;
-    background: #f8fafc;
-}
-
-.delivery-detail-grid span,
-.delivery-customer-box span {
-    display: block;
-    margin-bottom: 4px;
-    color: #718096;
-    font-size: 12px;
-    font-weight: 800;
-}
-
-.delivery-customer-box,
-.delivery-items-box {
-    border-top: 1px solid #edf0f4;
-}
-
-.delivery-customer-box > strong,
-.delivery-items-box > strong {
-    display: block;
-    margin-bottom: 10px;
-}
-
-.delivery-customer-box div {
-    margin-top: 8px;
-}
-
-.delivery-item-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 12px 0;
-    border-top: 1px solid #edf0f4;
-}
-
-.delivery-item-row:first-of-type {
-    border-top: 0;
 }
 
 .delivery-modal-actions {
@@ -485,6 +402,21 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    let activeTrigger = null;
+
+    function closeModal(modal) {
+        if (modal.querySelector('[data-delivery-confirm-form][data-submitting="true"]')) {
+            return;
+        }
+
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+        if (activeTrigger) {
+            activeTrigger.focus();
+            activeTrigger = null;
+        }
+    }
+
     document
         .querySelectorAll('[data-open-modal]')
         .forEach(function (button) {
@@ -492,7 +424,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 const modal = document.getElementById(button.dataset.openModal);
 
                 if (modal) {
+                    activeTrigger = button;
                     modal.classList.add('open');
+                    modal.setAttribute('aria-hidden', 'false');
+                    const initialFocus = modal.querySelector('[data-initial-focus]') ?? modal.querySelector('[data-close-modal]');
+                    if (initialFocus) {
+                        initialFocus.focus();
+                    }
                 }
             });
         });
@@ -504,7 +442,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const modal = button.closest('.delivery-modal');
 
                 if (modal) {
-                    modal.classList.remove('open');
+                    closeModal(modal);
                 }
             });
         });
@@ -514,10 +452,46 @@ document.addEventListener('DOMContentLoaded', function () {
         .forEach(function (modal) {
             modal.addEventListener('click', function (event) {
                 if (event.target === modal) {
-                    modal.classList.remove('open');
+                    closeModal(modal);
                 }
             });
         });
+
+    document.addEventListener('keydown', function (event) {
+        const modal = document.querySelector('.delivery-modal.open');
+        if (!modal) {
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            closeModal(modal);
+        } else if (event.key === 'Tab') {
+            const focusable = modal.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), a[href]');
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+    });
+
+    document.querySelectorAll('[data-delivery-confirm-form]').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (form.dataset.submitting === 'true') {
+                event.preventDefault();
+                return;
+            }
+
+            form.dataset.submitting = 'true';
+            const button = form.querySelector('button[type="submit"]');
+            button.disabled = true;
+            button.textContent = 'Completing...';
+        });
+    });
 });
 </script>
 @endsection

@@ -87,13 +87,6 @@
 
                 @endforeach
             </select>
-            <button
-                type="button"
-                class="btn primary"
-                id="filterButton"
-            >
-                Filter
-            </button>
 
         </div>
 
@@ -105,7 +98,18 @@
                 class="cashier-product-scroll"
             >
 
-                @forelse($products as $product)
+                @forelse($productGroups as $productGroup)
+                    @php
+                        $groupSearchText = mb_strtolower($productGroup->map(fn ($sizeProduct) =>
+                            $sizeProduct->product_name.' '.$sizeProduct->groupLabel().' '.($sizeProduct->size_name ?? '').' '.
+                            ($sizeProduct->category?->category_name ?? '').' '.
+                            $sizeProduct->productUnits->map(fn ($unit) => $unit->unit?->unit_name)->implode(' ')
+                        )->implode(' '));
+                    @endphp
+                    <div class="cashier-product-group" data-size-group="{{ $productGroup->first()->product_id }}"
+                        data-search="{{ $groupSearchText }}"
+                        data-category="{{ mb_strtolower($productGroup->first()->category?->category_name ?? 'Uncategorized') }}">
+                @foreach($productGroup as $product)
 
                     @php
                         $inventory = $product->inventory;
@@ -127,8 +131,7 @@
                             $activeUnits->firstWhere(
                                 'is_base_unit',
                                 true
-                            )
-                            ?? $activeUnits->first();
+                            );
 
                         $baseUnitName =
                             $baseProductUnit?->unit?->unit_name
@@ -156,9 +159,12 @@
                     <div
                         class="cashier-product-row product-filter-row"
                         data-product-id="{{ $product->product_id }}"
+                        data-base-stock="{{ $baseStock }}"
                         data-search="{{ $searchText }}"
                         data-category="{{ strtolower($categoryName) }}"
                         data-stock="{{ $baseStock > 0 ? 'in' : 'out' }}"
+                        data-size-product="{{ $product->product_id }}"
+                        @if(! $loop->first) hidden @endif
                     >
 
                         {{-- PRODUCT INFO --}}
@@ -166,7 +172,7 @@
                         <div class="cashier-product-info">
 
                             <div class="cashier-product-title">
-                                {{ $product->product_name }}
+                                {{ $product->groupLabel() }}
                             </div>
 
                             <div class="muted cashier-product-meta">
@@ -175,10 +181,10 @@
 
                                 <span>•</span>
 
-                                Base stock:
+                                Available stock:
 
-                                <strong>
-                                    {{ rtrim(rtrim(number_format($baseStock, 3, '.', ''), '0'), '.') }}
+                                <strong data-available-stock>
+                                    {{ rtrim(rtrim(number_format($baseStock, 6, '.', ''), '0'), '.') }}
                                 </strong>
 
                                 {{ $baseUnitName }}
@@ -188,16 +194,29 @@
 
                             @if($baseStock > 0)
 
-                                <span class="cashier-stock-badge in-stock">
+                                <span class="cashier-stock-badge in-stock" data-stock-badge>
                                     In Stock
                                 </span>
 
                             @else
 
-                                <span class="cashier-stock-badge out-stock">
+                                <span class="cashier-stock-badge out-stock" data-stock-badge>
                                     Out of Stock
                                 </span>
 
+                            @endif
+
+                            @if($product->size_name !== null)
+                                <label class="cashier-size-label">
+                                    Size
+                                    <select data-size-selector aria-label="Size for {{ $product->groupLabel() }}">
+                                        @foreach($productGroup as $sizeOption)
+                                            <option value="{{ $sizeOption->product_id }}" @selected($sizeOption->product_id === $product->product_id)>
+                                                {{ $sizeOption->size_name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </label>
                             @endif
 
                         </div>
@@ -238,7 +257,7 @@
                                                 ?? 'Unit',
 
                                             'price' =>
-                                                (float) $productUnit->selling_price,
+                                                round((float) ($baseProductUnit?->selling_price ?? 0) * $conversionFactor, 2),
 
                                             'factor' =>
                                                 $conversionFactor,
@@ -248,6 +267,17 @@
 
                                             'base_stock' =>
                                                 $baseStock,
+
+                                            'base_id' =>
+                                                $baseProductUnit?->product_unit_id,
+
+                                            'base_unit' =>
+                                                $baseUnitName,
+
+                                            'base_unit_id' => $baseProductUnit?->unit_id,
+
+                                            'base_price' =>
+                                                (float) ($baseProductUnit?->selling_price ?? 0),
                                         ];
                                     @endphp
 
@@ -255,14 +285,14 @@
                                         type="button"
                                         class="cashier-unit-button"
                                         data-unit="{{ json_encode($unitData) }}"
-                                        @disabled($baseStock <= 0)
+                                        @disabled($baseStock <= 0 || ! $baseProductUnit || (float) $baseProductUnit->conversion_factor !== 1.0 || (float) $productUnit->conversion_factor <= 0)
                                     >
                                         <span>
                                             {{ $productUnit->unit?->unit_name ?? 'Unit' }}
                                         </span>
 
                                         <strong>
-                                            ₱{{ number_format((float) $productUnit->selling_price, 2) }}
+                                            ₱{{ number_format($unitData['price'], 2) }}
                                         </strong>
                                     </button>
 
@@ -273,7 +303,8 @@
                         </div>
 
                     </div>
-
+                @endforeach
+                    </div>
                 @empty
 
                     <div class="cashier-empty-products muted">
@@ -354,6 +385,14 @@
 
 
             <div class="field cashier-payment">
+                <label for="paymentMethod">Payment Option</label>
+                <select class="input" name="payment_method" id="paymentMethod">
+                    <option value="PAY_NOW" @selected(old('payment_method', 'PAY_NOW') === 'PAY_NOW')>Pay now</option>
+                    <option value="COD" @selected(old('payment_method') === 'COD')>Cash on delivery (COD)</option>
+                </select>
+            </div>
+
+            <div class="field cashier-payment" id="paymentField">
 
                 <label>
                     Customer Payment
@@ -375,7 +414,7 @@
             </div>
 
 
-            <div class="cashier-change-row">
+            <div class="cashier-change-row" id="changeRow">
 
                 <span class="muted">
                     Change
@@ -385,6 +424,11 @@
                     ₱0.00
                 </strong>
 
+            </div>
+
+            <div class="cashier-change-row" id="codAmountDueRow" hidden>
+                <span class="muted">Amount Due on Delivery</span>
+                <strong id="codAmountDue">₱0.00</strong>
             </div>
 
 
@@ -404,15 +448,6 @@
 
             </label>
 
-
-            <div class="muted cashier-delivery-help">
-
-                If checked, the order is saved as
-                <strong>For Delivery</strong>.
-
-                You can immediately serve the next customer.
-
-            </div>
 
             <div
                 class="cashier-delivery-fields"
@@ -493,18 +528,14 @@
 </form>
 
 
+
 {{-- ========================================================== --}}
 {{-- SALE RECEIPT MODAL                                          --}}
 {{-- ========================================================== --}}
 
 @php
-    $receiptPayment = $completedSale
-        ? (float) session('receipt_payment', $completedSale->total_amount)
-        : 0;
-
-    $receiptChange = $completedSale
-        ? (float) session('receipt_change', max(0, $receiptPayment - (float) $completedSale->total_amount))
-        : 0;
+    $receiptPayment = $completedSale?->receivedPayment() ?? 0;
+    $receiptChange = $completedSale?->paymentChange() ?? 0;
 @endphp
 
 <div
@@ -547,6 +578,12 @@
                 <span>Date / Time</span>
                 <strong>{{ $completedSale->sale_date->format('m/d/Y g:i A') }}</strong>
 
+                <span>Payment Option</span>
+                <strong>{{ $completedSale->payment_method === 'COD' ? 'Cash on Delivery (COD)' : 'Pay now' }}</strong>
+
+                <span>Payment Status</span>
+                <strong>{{ $completedSale->status === 'CANCELLED' ? 'Cancelled' : ($completedSale->payment_status === 'PAID' ? 'Paid' : 'Unpaid') }}</strong>
+
             </div>
 
 
@@ -564,14 +601,14 @@
                         $productUnit = $item->productUnit;
                         $product = $productUnit?->product;
                         $unit = $productUnit?->unit;
-                        $quantity = rtrim(rtrim(number_format((float) $item->quantity, 2), '0'), '.');
+                        $quantity = rtrim(rtrim(number_format($item->sellingQuantity(), 6, '.', ''), '0'), '.');
                     @endphp
 
                     <div class="sale-modal-item">
                         <span>{{ $quantity }}</span>
-                        <span>{{ $unit?->unit_name ?? 'Unit' }}</span>
+                        <span>{{ $item->sellingUnitName() }}</span>
                         <strong>{{ $product?->product_name ?? 'Product' }}</strong>
-                        <span>₱{{ number_format((float) $item->unit_price, 2) }}</span>
+                        <span>₱{{ number_format($item->sellingUnitPrice(), 2) }}</span>
                         <strong>₱{{ number_format((float) $item->subtotal, 2) }}</strong>
                     </div>
                 @endforeach
@@ -592,17 +629,24 @@
                     <strong id="mTotal">₱{{ number_format((float) $completedSale->total_amount, 2) }}</strong>
                 </div>
 
-                <div>
-                    <span>Payment</span>
-                    <strong id="mPayment">₱{{ number_format($receiptPayment, 2) }}</strong>
-                </div>
-
-                <div>
-                    <span>Change</span>
-                    <strong id="mChange" class="sale-green">
-                        ₱{{ number_format($receiptChange, 2) }}
-                    </strong>
-                </div>
+                @if($completedSale->payment_status === 'UNPAID')
+                    <div>
+                        <span>Amount Due{{ $completedSale->delivery_status === 'PENDING' ? ' on Delivery' : '' }}</span>
+                        <strong id="mAmountDue">₱{{ number_format($completedSale->amountDue(), 2) }}</strong>
+                    </div>
+                    @if($completedSale->status !== 'CANCELLED')
+                        <p class="sale-cod-note">UNPAID — Collect payment after the customer receives the products.</p>
+                    @endif
+                @else
+                    <div>
+                        <span>Payment Received</span>
+                        <strong id="mPayment">₱{{ number_format($receiptPayment, 2) }}</strong>
+                    </div>
+                    <div>
+                        <span>Change</span>
+                        <strong id="mChange" class="sale-green">₱{{ number_format($receiptChange, 2) }}</strong>
+                    </div>
+                @endif
 
             </div>
 
@@ -691,6 +735,7 @@
 
 <style>
 
+
     /* ====================================================== */
     /* FILTERS                                                */
     /* ====================================================== */
@@ -707,8 +752,7 @@
         display: grid;
         grid-template-columns:
             minmax(260px, 1fr)
-            180px
-            auto;
+            180px;
         gap: 10px;
         align-items: center;
     }
@@ -779,6 +823,12 @@
         border-radius: 10px;
         background: #ffffff;
     }
+
+    [data-size-product][hidden] { display: none !important; }
+    .cashier-product-group { min-width: 0; flex-direction: column; }
+    .cashier-product-group .cashier-product-row { flex: 1; }
+    .cashier-size-label { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 12px; color: #64748b; }
+    .cashier-size-label select { flex: 1; padding: 8px 10px; }
 
 
 
@@ -1042,6 +1092,18 @@
         margin-top: 22px;
     }
 
+    #paymentField[hidden],
+    #changeRow[hidden],
+    #codAmountDueRow[hidden] {
+        display: none !important;
+    }
+
+    .sale-cod-note {
+        margin: 12px 0 0;
+        color: #000;
+        font-size: 12px;
+    }
+
 
     .cashier-change-row {
         display: flex;
@@ -1073,14 +1135,6 @@
     .cashier-delivery-check input {
         width: 16px;
         height: 16px;
-    }
-
-
-    .cashier-delivery-help {
-        margin-top: 8px;
-
-        font-size: 11px;
-        line-height: 1.5;
     }
 
 
@@ -1591,9 +1645,7 @@
         .cashier-filters {
             grid-template-columns:
                 minmax(200px, 1fr)
-                160px
-                140px
-                auto;
+                160px;
         }
 
     }
@@ -1602,7 +1654,7 @@
     @media (max-width: 700px) {
 
         .cashier-filters {
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
         }
 
         .cashier-search-wrap {
@@ -1700,7 +1752,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         return Number(
-            number.toFixed(3)
+            number.toFixed(6)
         ).toString();
 
     }
@@ -1719,6 +1771,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
 
+    function itemSubtotal(item) {
+        const priceInCentavos = Math.round(Number(item.price) * 100);
+        const quantityInMillionths = Math.round(Number(item.qty) / Number(item.factor) * 1000000);
+
+        return Math.round(priceInCentavos * quantityInMillionths / 1000000) / 100;
+    }
+
+
     function calculateTotal() {
 
         const productTotal = Object
@@ -1726,11 +1786,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .reduce(
                 function (sum, item) {
 
-                    return sum +
-                        (
-                            Number(item.price) *
-                            Number(item.qty)
-                        );
+                    return sum + itemSubtotal(item);
 
                 },
                 0
@@ -1744,7 +1800,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 )
                 : 0;
 
-        return productTotal + deliveryFee;
+        return Math.round((productTotal + deliveryFee) * 100) / 100;
 
     }
 
@@ -1770,6 +1826,8 @@ document.addEventListener('DOMContentLoaded', function () {
         byId('total').textContent =
             money(total);
 
+        byId('codAmountDue').textContent = money(total);
+
 
         byId('change').textContent =
             money(
@@ -1786,7 +1844,38 @@ document.addEventListener('DOMContentLoaded', function () {
     /* CART                                                   */
     /* ====================================================== */
 
+    function updateAvailableStock() {
+        document.querySelectorAll('.product-filter-row').forEach((row) => {
+            const orderedQuantity = Object.values(items)
+                .filter((item) => Number(item.product_id) === Number(row.dataset.productId))
+                .reduce((total, item) => total + Number(item.qty), 0);
+            const availableStock = Math.max(0,
+                Number((Number(row.dataset.baseStock) - orderedQuantity).toFixed(6)));
+            const hasStock = availableStock > 0;
+            const badge = row.querySelector('[data-stock-badge]');
+
+            row.querySelector('[data-available-stock]').textContent = cleanNumber(availableStock);
+            row.dataset.stock = hasStock ? 'in' : 'out';
+            badge.textContent = hasStock ? 'In Stock' : 'Out of Stock';
+            badge.classList.toggle('in-stock', hasStock);
+            badge.classList.toggle('out-stock', !hasStock);
+
+            row.querySelectorAll('.cashier-unit-button').forEach((button) => {
+                const unit = readUnitFromButton(button);
+                const existingItem = unit ? items[String(unit.base_id ?? unit.id)] : null;
+                const canSwitchUnit = existingItem
+                    && Number(existingItem.selling_id) !== Number(unit.id)
+                    && Number(unit.factor) <= Number(row.dataset.baseStock);
+
+                button.disabled = button.dataset.stockLocked === 'true' || (!hasStock && !canSwitchUnit);
+            });
+        });
+    }
+
+
     function renderOrder() {
+
+        updateAvailableStock();
 
         const orderItems =
             Object.values(items);
@@ -1829,6 +1918,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                                 </div>
 
+
                             </div>
                             <div class="cashier-order-stepper">
                                 <button
@@ -1843,9 +1933,9 @@ document.addEventListener('DOMContentLoaded', function () {
                                     type="number"
                                     class="cashier-order-qty-input"
                                     data-order-quantity="${item.id}"
-                                    value="${cleanNumber(item.qty)}"
-                                    min="1"
-                                    step="1"
+                                    value="${cleanNumber(item.qty / item.factor)}"
+                                    min="0.000001"
+                                    step="any"
                                 >
 
                                 <button
@@ -1860,24 +1950,22 @@ document.addEventListener('DOMContentLoaded', function () {
                             <input
                                 type="hidden"
                                 name="items[${index}][quantity]"
-                                value="${item.qty}"
+                                value="${cleanNumber(item.qty / item.factor)}"
                             >
+
 
 
                             <div class="cashier-order-amount">
 
                                 <strong>
-                                    ${money(
-                                        Number(item.price) *
-                                        Number(item.qty)
-                                    )}
+                                    ${money(itemSubtotal(item))}
                                 </strong>
 
 
                                 <input
                                     type="hidden"
                                     name="items[${index}][product_unit_id]"
-                                    value="${item.id}"
+                                    value="${item.selling_id}"
                                 >
 
                             </div>
@@ -1906,69 +1994,33 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     /* ====================================================== */
-    /* CHECK BASE STOCK ACROSS DIFFERENT SELLING UNITS        */
-    /* ====================================================== */
-
-    function calculateUsedBaseStock(
-        productId,
-        excludeUnitId = null
-    ) {
-
-        let used = 0;
-
-
-        Object
-            .values(items)
-            .forEach(
-                function (item) {
-
-                    if (
-                        Number(item.product_id) !==
-                        Number(productId)
-                    ) {
-                        return;
-                    }
-
-
-                    if (
-                        excludeUnitId !== null &&
-                        String(item.id) ===
-                        String(excludeUnitId)
-                    ) {
-                        return;
-                    }
-
-
-                    used +=
-                        Number(item.qty) *
-                        Number(item.factor);
-
-                }
-            );
-
-
-        return used;
-
-    }
-
-
-    /* ====================================================== */
-    /* ADD SELLING UNIT                                       */
+    /* KEEP ONE PRODUCT LINE; RESET WHEN SWITCHING UNITS       */
     /* ====================================================== */
 
     function changeUnitQuantity(unit, changeBy) {
 
         const unitId =
-            String(unit.id);
+            String(unit.base_id ?? unit.id);
+
+        const existingItem = items[unitId];
+        const sellingId = Number(unit.selling_id ?? unit.id);
+        const switchingUnits = existingItem && Number(existingItem.selling_id) !== sellingId;
 
         const existingQuantity =
-            items[unitId]
-                ? Number(items[unitId].qty)
+            existingItem && !switchingUnits
+                ? Number(existingItem.qty)
                 : 0;
 
+
         const newQuantity =
-            existingQuantity +
-            Number(changeBy);
+            Number((existingQuantity +
+                Number(changeBy) * Number(unit.factor)).toFixed(6));
+
+        if (!Number.isFinite(newQuantity)) {
+            showCashierNotice('Enter a valid quantity.');
+            renderOrder();
+            return;
+        }
 
 
         if (newQuantity <= 0) {
@@ -1980,57 +2032,36 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (
             newQuantity >
-            Number(unit.available) +
-            0.000001
+            Number(unit.base_stock)
         ) {
             showCashierNotice(
                 'Only ' +
-                cleanNumber(unit.available) +
+                cleanNumber(unit.base_stock) +
                 ' ' +
-                unit.unit +
+                (unit.base_unit ?? unit.unit) +
                 ' available.'
             );
-
+            renderOrder();
             return;
         }
 
 
-        const usedByOtherUnits =
-            calculateUsedBaseStock(
-                unit.product_id,
-                unitId
-            );
-
-        const requiredByThisUnit =
-            newQuantity *
-            Number(unit.factor);
-
-
-        if (
-            usedByOtherUnits +
-            requiredByThisUnit >
-            Number(unit.base_stock) +
-            0.000001
-        ) {
-            showCashierNotice(
-                'The selected quantity exceeds the available stock for ' +
-                unit.name +
-                '.'
-            );
-
-            return;
-        }
-
+        const basePrice = Number(unit.base_price ?? unit.price);
 
         items[unitId] = {
-            id: Number(unit.id),
+            id: Number(unitId),
+            base_id: Number(unitId),
+            selling_id: sellingId,
             product_id: Number(unit.product_id),
             name: unit.name,
             unit: unit.unit,
             price: Number(unit.price),
+            base_price: basePrice,
             factor: Number(unit.factor),
-            available: Number(unit.available),
+            available: Number(unit.base_stock),
             base_stock: Number(unit.base_stock),
+            base_unit: unit.base_unit ?? unit.unit,
+            base_unit_id: unit.base_unit_id,
             qty: newQuantity
         };
 
@@ -2064,6 +2095,8 @@ document.addEventListener('DOMContentLoaded', function () {
         )
         .forEach(
             function (button) {
+                button.dataset.stockLocked = String(button.disabled);
+
                 button.addEventListener(
                     'click',
                     function () {
@@ -2104,7 +2137,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     Number(quantityInput.value || 0);
 
                 const currentQuantity =
-                    Number(item.qty);
+                    Number(item.qty) / Number(item.factor);
 
                 changeUnitQuantity(
                     item,
@@ -2177,6 +2210,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         );
 
+
     /* ====================================================== */
     /* FILTER / PAGINATE PRODUCTS                             */
     /* ====================================================== */
@@ -2216,7 +2250,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         document
             .querySelectorAll(
-                '.product-filter-row'
+                '.cashier-product-group'
             )
             .forEach(
                 function (row) {
@@ -2284,7 +2318,7 @@ document.addEventListener('DOMContentLoaded', function () {
         filteredProductRows =
             Array.from(
                 document.querySelectorAll(
-                    '.product-filter-row'
+                    '.cashier-product-group'
                 )
             ).filter(
                 function (row) {
@@ -2324,13 +2358,6 @@ document.addEventListener('DOMContentLoaded', function () {
     byId('categoryFilter')
         .addEventListener(
             'change',
-            filterProducts
-        );
-
-
-    byId('filterButton')
-        .addEventListener(
-            'click',
             filterProducts
         );
 
@@ -2387,6 +2414,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function toggleDeliveryFields() {
 
+        if (isCashOnDelivery()) {
+            byId('delivery').checked = true;
+        }
+
         const checked =
             byId('delivery').checked;
 
@@ -2407,15 +2438,40 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         );
 
+        togglePaymentFields();
         updatePayment();
 
     }
+
+    function isCashOnDelivery() {
+        return byId('paymentMethod').value === 'COD';
+    }
+
+    function togglePaymentFields() {
+        const cod = isCashOnDelivery();
+        byId('payment').required = !cod;
+        byId('payment').disabled = cod;
+        if (cod) {
+            byId('payment').value = '';
+        }
+        byId('paymentField').hidden = cod;
+        byId('changeRow').hidden = cod;
+        byId('codAmountDueRow').hidden = !cod;
+        byId('confirmSaleButton').textContent = cod ? 'SAVE COD ORDER' : 'CONFIRM SALE';
+    }
+
+    byId('paymentMethod').addEventListener('change', toggleDeliveryFields);
 
 
     byId('delivery')
         .addEventListener(
             'change',
-            toggleDeliveryFields
+            function () {
+                if (!byId('delivery').checked && isCashOnDelivery()) {
+                    byId('paymentMethod').value = 'PAY_NOW';
+                }
+                toggleDeliveryFields();
+            }
         );
 
 
@@ -2526,8 +2582,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
                 if (
-                    !Number.isFinite(payment) ||
-                    payment < total
+                    !isCashOnDelivery() && (
+                        !Number.isFinite(payment) || payment < total
+                    )
                 ) {
 
                     showCashierNotice(
@@ -2644,5 +2701,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 </script>
+
+@include('layouts.product-sizes')
 
 @endsection

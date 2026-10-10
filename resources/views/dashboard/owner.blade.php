@@ -1072,23 +1072,17 @@
         ];
     })->values();
 
-    $topSellingProducts = collect();
-
-    if (
-        \Illuminate\Support\Facades\Schema::hasTable('sale_items')
-        && \Illuminate\Support\Facades\Schema::hasTable('products')
-        && \Illuminate\Support\Facades\Schema::hasColumn('sale_items', 'product_id')
-        && \Illuminate\Support\Facades\Schema::hasColumn('sale_items', 'quantity')
-        && \Illuminate\Support\Facades\Schema::hasColumn('products', 'name')
-    ) {
-        $topSellingProducts = \Illuminate\Support\Facades\DB::table('sale_items')
-            ->join('products', 'products.id', '=', 'sale_items.product_id')
-            ->select('products.name', \Illuminate\Support\Facades\DB::raw('SUM(sale_items.quantity) as total_sold'))
-            ->groupBy('products.id', 'products.name')
-            ->orderByDesc('total_sold')
-            ->limit(5)
-            ->get();
-    }
+    $topSellingProducts = \Illuminate\Support\Facades\DB::table('sale_items')
+        ->join('product_units', 'product_units.product_unit_id', '=', 'sale_items.product_unit_id')
+        ->join('products', 'products.product_id', '=', 'product_units.product_id')
+        ->join('sales', 'sales.sale_id', '=', 'sale_items.sale_id')
+        ->where('sales.status', 'COMPLETED')
+        ->select('products.product_name as name', \Illuminate\Support\Facades\DB::raw('SUM(sale_items.quantity * product_units.conversion_factor) as total_sold'))
+        ->groupBy('products.product_id', 'products.product_name')
+        ->orderByDesc('total_sold')
+        ->orderBy('products.product_id')
+        ->limit(5)
+        ->get();
 @endphp
 
 @push('scripts')

@@ -1706,7 +1706,7 @@
                 <div class="app-date-time-spacer no-print" aria-hidden="true"></div>
             @endauth
 
-        @if(session('success') && !request()->routeIs('sales.create'))
+        @if(session('success') && !request()->routeIs('sales.create', 'sales.index'))
 
             <div class="alert">
                 {{ session('success') }}
@@ -2214,6 +2214,8 @@
             });
         });
     </script>
+
+    @include('layouts.auto-filters')
 
     @stack('scripts')
 

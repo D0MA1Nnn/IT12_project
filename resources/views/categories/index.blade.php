@@ -20,6 +20,7 @@
     method="GET"
     action="{{ route('categories.index') }}"
     class="category-filter-bar"
+    data-auto-filter
 >
 
     {{-- Search --}}
@@ -70,14 +71,6 @@
             Archived
         </option>
     </select>
-
-
-    <button
-        type="submit"
-        class="category-filter-button"
-    >
-        Filter
-    </button>
 
 
     @if(request()->filled('search') || request()->filled('status'))

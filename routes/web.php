@@ -315,8 +315,10 @@ Route::middleware('auth')->group(function () {
         )->only([
             'index',
             'create',
-            'store',
         ]);
+
+        Route::post('/sales', [SaleController::class, 'store'])
+            ->name('sales.store')->block(120, 10);
 
         Route::patch(
             '/sales/{sale}/complete-delivery',
@@ -327,6 +329,16 @@ Route::middleware('auth')->group(function () {
             '/sales/{sale}/cancel-delivery',
             [SaleController::class, 'cancelDelivery']
         )->name('sales.cancel-delivery');
+
+        Route::patch(
+            '/sales/{sale}/collect-payment',
+            [SaleController::class, 'collectPayment']
+        )->name('sales.collect-payment');
+
+        Route::get(
+            '/sales/{sale}/receipt',
+            [SaleController::class, 'receipt']
+        )->name('sales.receipt');
 
     });
 

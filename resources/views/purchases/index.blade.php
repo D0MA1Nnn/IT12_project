@@ -9,7 +9,7 @@
 </div>
 
 <div class="purchase-toolbar">
-    <form method="GET" action="{{ route('purchases.index') }}" class="purchase-filters">
+    <form method="GET" action="{{ route('purchases.index') }}" class="purchase-filters" data-auto-filter>
         <div class="purchase-search">
             <span class="purchase-search-icon">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -36,10 +36,6 @@
                 </option>
             @endforeach
         </select>
-
-        <button type="submit" class="btn primary purchase-filter-button">
-            Filter
-        </button>
 
         @if(!empty($search) || (($status ?? 'all') !== 'all'))
             <a href="{{ route('purchases.index') }}" class="btn light purchase-filter-button">Reset</a>

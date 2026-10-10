@@ -39,7 +39,7 @@
     </div>
 </div>
 
-<form method="GET" action="{{ route('sales.report') }}" class="toolbar sales-report-filter no-print">
+<form method="GET" action="{{ route('sales.report') }}" class="toolbar sales-report-filter no-print" data-auto-filter>
     <div class="sales-report-search">
         <span>⌕</span>
         <input
@@ -72,8 +72,6 @@
     </label>
 
     <div class="sales-report-filter-actions">
-        <button class="btn primary">Filter</button>
-
         @if(request()->hasAny(['q', 'from', 'to']))
             <a class="btn light" href="{{ route('sales.report') }}">Clear</a>
         @endif
@@ -111,6 +109,7 @@
                     <th>Total Amount</th>
                     <th>Delivery</th>
                     <th>Recorded By</th>
+                    <th class="no-print">Invoice</th>
                 </tr>
             </thead>
             <tbody>
@@ -126,10 +125,11 @@
                             </span>
                         </td>
                         <td>{{ $sale->user?->username ?? '—' }}</td>
+                        <td class="no-print"><a class="btn light small" href="{{ route('sales.receipt', $sale) }}">View Invoice</a></td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="muted" style="text-align:center;padding:30px">No sales found.</td>
+                        <td colspan="7" class="muted" style="text-align:center;padding:30px">No sales found.</td>
                     </tr>
                 @endforelse
             </tbody>
